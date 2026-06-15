@@ -60,6 +60,12 @@ export default function QuoteScreen() {
     [token],
   );
 
+  // Debounce the part search so we don't fire a request on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => search(query), 300);
+    return () => clearTimeout(t);
+  }, [query, search]);
+
   // Cost basis: the member price (what the shop pays) when active, else wholesale.
   const cost = selected
     ? (isActive && selected.member_price != null ? selected.member_price : regularWholesale(selected))
@@ -122,10 +128,7 @@ export default function QuoteScreen() {
         <ThemedText type="smallBold">Pick a part to quote</ThemedText>
         <TextInput
           value={query}
-          onChangeText={(t) => {
-            setQuery(t);
-            search(t);
-          }}
+          onChangeText={setQuery}
           placeholder="Search part name or SKU"
           placeholderTextColor={theme.textSecondary}
           style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}

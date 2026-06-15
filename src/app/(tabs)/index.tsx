@@ -34,6 +34,12 @@ export default function CatalogScreen() {
   const [inactive, setInactive] = useState(false);
 
   const reqId = useRef(0);
+  // Keep the latest search in refs so the focus refetch uses the current query
+  // instead of a stale closure (otherwise refocus silently resets to the full list).
+  const queryRef = useRef(query);
+  queryRef.current = query;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
 
   const load = useCallback(
     async (q: string, m: SearchMode) => {
@@ -67,8 +73,7 @@ export default function CatalogScreen() {
   // websockets — focus refetch is enough, per the build plan).
   useFocusEffect(
     useCallback(() => {
-      load(query, mode);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      load(queryRef.current.trim(), modeRef.current);
     }, [load]),
   );
 
