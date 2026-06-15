@@ -1,0 +1,130 @@
+// Centralized API layer. ALL backend calls go through here (per the build plan)
+// so the single-source-of-truth contract with the shared backend stays in one
+// place. The base URL comes from EXPO_PUBLIC_API_URL and already includes /api.
+import {
+  AuthTokenResponse,
+  Order,
+  PartsProSettings,
+  Plan,
+  Product,
+  Subscriber,
+} from './types';
+
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
+
+if (!BASE_URL) {
+  console.warn('EXPO_PUBLIC_API_URL is not set — check your .env file.');
+}
+
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
+
+interface RequestOptions {
+  method?: string;
+  body?: unknown;
+  token?: string | null;
+  query?: Record<string, string | number | undefined>;
+}
+
+async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const { method = 'GET', body, token, query } = opts;
+
+  let url = `${BASE_URL}${path}`;
+  if (query) {
+    const qs = Object.entries(query)
+      .filter(([, v]) => v !== undefined && v !== '')
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join('&');
+    if (qs) url += `?${qs}`;
+  }
+
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError(0, 'Network error — check your connection and try again.');
+  }
+
+  const text = await res.text();
+  const data = text ? safeJson(text) : null;
+
+  if (!res.ok) {
+    const detail =
+      (data && typeof data === 'object' && 'detail' in data && (data as any).detail) ||
+      `Request failed (${res.status})`;
+    throw new ApiError(res.status, String(detail));
+  }
+  return data as T;
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+// ---- Auth ----
+export function login(email: string, password: string) {
+  return request<AuthTokenResponse>('/partspro/auth/login', {
+    method: 'POST',
+    body: { email, password },
+  });
+}
+
+export function register(email: string, password: string, name: string, phone?: string) {
+  return request<Subscriber>('/partspro/auth/register', {
+    method: 'POST',
+    body: { email, password, name, phone },
+  });
+}
+
+export function getMe(token: string) {
+  return request<Subscriber>('/partspro/me', { token });
+}
+
+export function updateProfile(token: string, updates: { name?: string; phone?: string }) {
+  return request<Subscriber>('/partspro/me/profile', {
+    method: 'PUT',
+    body: updates,
+    token,
+  });
+}
+
+// ---- Settings (member discount, fetched at runtime) ----
+export function getSettings() {
+  return request<PartsProSettings>('/partspro/settings');
+}
+
+// ---- Catalog (live products from the shared collection) ----
+export function getCatalog(
+  token: string,
+  params: { q?: string; device?: string } = {},
+) {
+  return request<Product[]>('/partspro/catalog', {
+    token,
+    query: { q: params.q, device: params.device, limit: 100 },
+  });
+}
+
+// ---- Orders ----
+export function getOrders(token: string) {
+  return request<Order[]>('/partspro/orders', { token });
+}
+
+export type { AuthTokenResponse, Order, PartsProSettings, Plan, Product, Subscriber };
