@@ -125,6 +125,26 @@ async function main() {
     `status ${orders.status}`,
   );
 
+  // Saved quotes CRUD (subscriber-scoped; no admin needed)
+  const qList0 = await call('/partspro/quotes', { token });
+  check('GET /quotes returns a list', qList0.status === 200 && Array.isArray(qList0.body), `status ${qList0.status}`);
+  const qCreate = await call('/partspro/quotes', {
+    method: 'POST',
+    token,
+    body: { part_name: 'Test screen', cost: 10, markup_percent: 30, customer_price: 13 },
+  });
+  const quoteId = qCreate.body?.id;
+  check('POST /quotes saves a quote', qCreate.status === 200 && !!quoteId, `status ${qCreate.status}`);
+  const qList1 = await call('/partspro/quotes', { token });
+  check(
+    'saved quote appears in the list',
+    Array.isArray(qList1.body) && qList1.body.some((q) => q.id === quoteId),
+  );
+  if (quoteId) {
+    const qDel = await call(`/partspro/quotes/${quoteId}`, { method: 'DELETE', token });
+    check('DELETE /quotes/{id} -> 204', qDel.status === 204, `status ${qDel.status}`);
+  }
+
   const wrong = await call('/partspro/auth/login', { method: 'POST', body: { email, password: 'nope' } });
   check('POST login with wrong password -> 401', wrong.status === 401, `status ${wrong.status}`);
 

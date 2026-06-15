@@ -57,6 +57,17 @@ export interface Order {
   items?: OrderItem[];
 }
 
+export interface SavedQuote {
+  id: string;
+  product_id?: string | null;
+  part_name: string;
+  cost: number;
+  markup_percent: number;
+  customer_price: number;
+  note?: string | null;
+  created_at?: string;
+}
+
 export interface AuthTokenResponse {
   access_token: string;
   token_type: string;

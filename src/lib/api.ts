@@ -7,6 +7,7 @@ import {
   PartsProSettings,
   Plan,
   Product,
+  SavedQuote,
   Subscriber,
 } from './types';
 
@@ -148,6 +149,29 @@ export function getOrders(token: string) {
   return request<Order[]>('/partspro/orders', { token });
 }
 
+// ---- Saved quotes ----
+export function getQuotes(token: string) {
+  return request<SavedQuote[]>('/partspro/quotes', { token });
+}
+
+export function saveQuote(
+  token: string,
+  quote: {
+    product_id?: string;
+    part_name: string;
+    cost: number;
+    markup_percent: number;
+    customer_price: number;
+    note?: string;
+  },
+) {
+  return request<SavedQuote>('/partspro/quotes', { method: 'POST', body: quote, token });
+}
+
+export function deleteQuote(token: string, id: string) {
+  return request<void>(`/partspro/quotes/${id}`, { method: 'DELETE', token });
+}
+
 // ---- Self-serve billing (Stripe; disabled until configured server-side) ----
 export function getBillingStatus() {
   return request<{ enabled: boolean }>('/partspro/billing/status');
@@ -161,4 +185,4 @@ export function startCheckout(token: string, plan: 'monthly' | 'annual') {
   });
 }
 
-export type { AuthTokenResponse, Order, PartsProSettings, Plan, Product, Subscriber };
+export type { AuthTokenResponse, Order, PartsProSettings, Plan, Product, SavedQuote, Subscriber };

@@ -1,6 +1,7 @@
 import Slider from '@react-native-community/slider';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -9,9 +10,18 @@ import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatMoney, regularWholesale } from '@/lib/format';
+import { formatDate, formatMoney, regularWholesale } from '@/lib/format';
 import { MARKUP_KEY, storageGet, storageSet } from '@/lib/storage';
-import type { Product } from '@/lib/types';
+import type { Product, SavedQuote } from '@/lib/types';
+
+function quoteText(q: { part_name: string; cost: number; markup_percent: number; customer_price: number }): string {
+  return (
+    `Repair quote — ${q.part_name}\n` +
+    `Part cost: ${formatMoney(q.cost)}\n` +
+    `Markup: ${q.markup_percent}%\n` +
+    `Customer price: ${formatMoney(q.customer_price)}`
+  );
+}
 
 export default function QuoteScreen() {
   const theme = useTheme();
@@ -22,7 +32,24 @@ export default function QuoteScreen() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
   const [markup, setMarkup] = useState(30);
+  const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>([]);
+  const [saving, setSaving] = useState(false);
   const reqId = useRef(0);
+
+  const loadQuotes = useCallback(async () => {
+    if (!token) return;
+    try {
+      setSavedQuotes(await api.getQuotes(token));
+    } catch {
+      /* non-fatal */
+    }
+  }, [token]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadQuotes();
+    }, [loadQuotes]),
+  );
 
   // Restore the user's preferred default markup (persisted per device).
   useEffect(() => {
@@ -72,6 +99,57 @@ export default function QuoteScreen() {
     : null;
   const suggested = cost != null ? cost * (1 + markup / 100) : null;
 
+  const saveCurrent = async () => {
+    if (!token || !selected || cost == null || suggested == null) return;
+    setSaving(true);
+    try {
+      await api.saveQuote(token, {
+        product_id: selected.id,
+        part_name: selected.name_en,
+        cost: Math.round(cost * 100) / 100,
+        markup_percent: markup,
+        customer_price: Math.round(suggested * 100) / 100,
+      });
+      await loadQuotes();
+      Alert.alert('Saved', 'Quote saved. Find it under "Saved quotes".');
+    } catch (e) {
+      Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not save quote');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const shareCurrent = () => {
+    if (!selected || cost == null || suggested == null) return;
+    Share.share({
+      message: quoteText({
+        part_name: selected.name_en,
+        cost,
+        markup_percent: markup,
+        customer_price: suggested,
+      }),
+    });
+  };
+
+  const deleteSaved = (q: SavedQuote) => {
+    if (!token) return;
+    Alert.alert('Delete quote', `Delete the quote for ${q.part_name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.deleteQuote(token, q.id);
+            setSavedQuotes((prev) => prev.filter((x) => x.id !== q.id));
+          } catch (e) {
+            Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not delete');
+          }
+        },
+      },
+    ]);
+  };
+
   if (selected) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
@@ -117,6 +195,22 @@ export default function QuoteScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             Your markup is saved as the default for next time.
           </ThemedText>
+
+          <View style={styles.actionRow}>
+            <Pressable
+              onPress={saveCurrent}
+              disabled={saving}
+              style={[styles.actionBtn, { backgroundColor: Brand.accent }, saving && { opacity: 0.6 }]}>
+              <ThemedText type="smallBold" style={{ color: '#fff' }}>
+                {saving ? 'Saving…' : 'Save quote'}
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={shareCurrent}
+              style={[styles.actionBtn, { backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="smallBold">Share</ThemedText>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -163,11 +257,54 @@ export default function QuoteScreen() {
             </Pressable>
           )}
           ListEmptyComponent={
-            <View style={styles.centered}>
-              <ThemedText themeColor="textSecondary" style={{ textAlign: 'center' }}>
-                {query.trim() ? 'No matching parts.' : 'Search for a part to start a quote.'}
-              </ThemedText>
-            </View>
+            query.trim() ? (
+              <View style={styles.centered}>
+                <ThemedText themeColor="textSecondary" style={{ textAlign: 'center' }}>
+                  No matching parts.
+                </ThemedText>
+              </View>
+            ) : savedQuotes.length > 0 ? (
+              <View style={styles.savedWrap}>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.savedHeader}>
+                  SAVED QUOTES
+                </ThemedText>
+                {savedQuotes.map((q) => (
+                  <View key={q.id} style={[styles.savedCard, { backgroundColor: theme.backgroundElement }]}>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText type="smallBold" numberOfLines={1}>
+                        {q.part_name}
+                      </ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {formatMoney(q.cost)} +{q.markup_percent}% → {formatMoney(q.customer_price)}
+                      </ThemedText>
+                      {q.created_at ? (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {formatDate(q.created_at)}
+                        </ThemedText>
+                      ) : null}
+                    </View>
+                    <Pressable
+                      onPress={() => Share.share({ message: quoteText(q) })}
+                      style={styles.savedAction}>
+                      <ThemedText type="small" style={{ color: Brand.accent }}>
+                        Share
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable onPress={() => deleteSaved(q)} style={styles.savedAction}>
+                      <ThemedText type="small" style={{ color: Brand.danger }}>
+                        Delete
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.centered}>
+                <ThemedText themeColor="textSecondary" style={{ textAlign: 'center' }}>
+                  Search for a part to start a quote.
+                </ThemedText>
+              </View>
+            )
           }
         />
       )}
@@ -202,6 +339,23 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   detail: { padding: Spacing.three, gap: Spacing.three },
+  actionRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.two },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: Spacing.three,
+    borderRadius: Spacing.three,
+    alignItems: 'center',
+  },
+  savedWrap: { paddingHorizontal: Spacing.three, gap: Spacing.two },
+  savedHeader: { letterSpacing: 1, marginBottom: Spacing.one },
+  savedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    gap: Spacing.two,
+  },
+  savedAction: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.one },
   back: { paddingVertical: Spacing.one },
   costBox: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

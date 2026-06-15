@@ -26,6 +26,13 @@ export default function AccountScreen() {
   const [phone, setPhone] = useState(subscriber?.phone ?? '');
   const [saving, setSaving] = useState(false);
 
+  // Days until the membership lapses (for an "expiring soon" nudge).
+  const daysLeft =
+    isActive && subscriber?.expiry_date
+      ? Math.ceil((new Date(subscriber.expiry_date).getTime() - Date.now()) / 86400000)
+      : null;
+  const expiringSoon = daysLeft !== null && daysLeft <= 7;
+
   const onLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -110,6 +117,13 @@ export default function AccountScreen() {
           {isActive && subscriber?.expiry_date ? (
             <ThemedText themeColor="textSecondary">
               Renews / expires {formatDate(subscriber.expiry_date)}
+            </ThemedText>
+          ) : null}
+          {expiringSoon ? (
+            <ThemedText type="smallBold" style={{ color: Brand.danger }}>
+              {daysLeft && daysLeft > 0
+                ? `Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — renew to keep member pricing.`
+                : 'Expires today — renew to keep member pricing.'}
             </ThemedText>
           ) : null}
           {!isActive ? (
