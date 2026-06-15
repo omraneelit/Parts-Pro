@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -104,7 +104,7 @@ export default function LoginScreen() {
           />
 
           {error ? (
-            <ThemedText type="small" style={{ color: '#d14343' }}>
+            <ThemedText type="small" style={{ color: Brand.danger }}>
               {error}
             </ThemedText>
           ) : null}
@@ -127,7 +127,7 @@ export default function LoginScreen() {
             style={styles.switch}>
             <ThemedText type="small" themeColor="textSecondary">
               {mode === 'login' ? "Don't have an account? " : 'Already a member? '}
-              <ThemedText type="smallBold" style={{ color: '#3c87f7' }}>
+              <ThemedText type="smallBold" style={{ color: Brand.accent }}>
                 {mode === 'login' ? 'Sign up' : 'Sign in'}
               </ThemedText>
             </ThemedText>
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   primaryBtn: {
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.accent,
     padding: Spacing.three,
     borderRadius: Spacing.three,
     alignItems: 'center',

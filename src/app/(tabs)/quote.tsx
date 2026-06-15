@@ -4,7 +4,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
@@ -77,7 +77,7 @@ export default function QuoteScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
         <View style={styles.detail}>
           <Pressable onPress={() => setSelected(null)} style={styles.back}>
-            <ThemedText type="smallBold" style={{ color: '#3c87f7' }}>
+            <ThemedText type="smallBold" style={{ color: Brand.accent }}>
               ← Pick another part
             </ThemedText>
           </Pressable>
@@ -98,7 +98,7 @@ export default function QuoteScreen() {
             </Row>
             <View style={styles.divider} />
             <Row label="Suggested customer price">
-              <ThemedText type="subtitle" style={{ color: '#2e9e5b' }}>
+              <ThemedText type="subtitle" style={{ color: Brand.success }}>
                 {formatMoney(suggested)}
               </ThemedText>
             </Row>
@@ -111,7 +111,7 @@ export default function QuoteScreen() {
             step={1}
             value={markup}
             onValueChange={persistMarkup}
-            minimumTrackTintColor="#3c87f7"
+            minimumTrackTintColor={Brand.accent}
             maximumTrackTintColor={theme.backgroundSelected}
           />
           <ThemedText type="small" themeColor="textSecondary">

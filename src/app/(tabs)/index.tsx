@@ -12,7 +12,7 @@ import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
@@ -109,7 +109,7 @@ export default function CatalogScreen() {
                 style={[
                   styles.segmentBtn,
                   {
-                    backgroundColor: selected ? '#3c87f7' : theme.backgroundElement,
+                    backgroundColor: selected ? Brand.accent : theme.backgroundElement,
                   },
                 ]}>
                 <ThemedText
@@ -174,6 +174,8 @@ function ProductRow({ product, showMember }: { product: Product; showMember: boo
   const regular = regularWholesale(product);
   const member = product.member_price;
   const hasMember = showMember && member !== null && member !== undefined && regular !== null;
+  const savings =
+    hasMember && regular && regular > 0 ? Math.round((1 - (member as number) / regular) * 100) : 0;
 
   const stockLabel =
     product.stock_qty === null || product.stock_qty === undefined
@@ -208,14 +210,14 @@ function ProductRow({ product, showMember }: { product: Product; showMember: boo
         ) : null}
         <ThemedText
           type="small"
-          style={{ color: out ? '#d14343' : '#2e9e5b' }}>
+          style={{ color: out ? Brand.danger : Brand.success }}>
           {stockLabel}
         </ThemedText>
       </View>
       <View style={styles.priceCol}>
         {hasMember ? (
           <>
-            <ThemedText type="smallBold" style={{ color: '#2e9e5b' }}>
+            <ThemedText type="smallBold" style={{ color: Brand.success }}>
               {formatMoney(member)}
             </ThemedText>
             <ThemedText
@@ -225,7 +227,7 @@ function ProductRow({ product, showMember }: { product: Product; showMember: boo
               {formatMoney(regular)}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              member
+              {savings > 0 ? `member · save ${savings}%` : 'member'}
             </ThemedText>
           </>
         ) : (
@@ -277,7 +279,7 @@ const styles = StyleSheet.create({
   },
   center: { textAlign: 'center' },
   retry: {
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.accent,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,

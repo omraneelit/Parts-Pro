@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -58,7 +58,7 @@ export default function OrdersScreen() {
             <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
               <View style={styles.rowBetween}>
                 <ThemedText type="smallBold">Order #{item.id.slice(-6)}</ThemedText>
-                <ThemedText type="smallBold" style={{ color: '#2e9e5b' }}>
+                <ThemedText type="smallBold" style={{ color: Brand.success }}>
                   {formatMoney(item.total)}
                 </ThemedText>
               </View>

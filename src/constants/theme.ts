@@ -26,6 +26,16 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
+// Brand accents shared across screens (same in light/dark). Centralized so the
+// accent/success/danger colors aren't duplicated as literals in every screen.
+export const Brand = {
+  accent: '#3c87f7',
+  success: '#2e9e5b',
+  danger: '#d14343',
+  successBg: '#e7f6ed',
+  successText: '#1d7a44',
+} as const;
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */

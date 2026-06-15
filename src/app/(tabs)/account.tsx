@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
@@ -34,11 +34,11 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={[styles.statusCard, { backgroundColor: isActive ? '#e7f6ed' : theme.backgroundElement }]}>
-          <ThemedText type="small" style={{ color: isActive ? '#1d7a44' : theme.textSecondary }}>
+        <View style={[styles.statusCard, { backgroundColor: isActive ? Brand.successBg : theme.backgroundElement }]}>
+          <ThemedText type="small" style={{ color: isActive ? Brand.successText : theme.textSecondary }}>
             SUBSCRIPTION
           </ThemedText>
-          <ThemedText type="subtitle" style={{ color: isActive ? '#1d7a44' : theme.text }}>
+          <ThemedText type="subtitle" style={{ color: isActive ? Brand.successText : theme.text }}>
             {isActive ? 'Pro — Active' : 'Inactive'}
           </ThemedText>
           {subscriber?.plan ? (
@@ -98,5 +98,5 @@ const styles = StyleSheet.create({
   card: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
   field: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   btn: { padding: Spacing.three, borderRadius: Spacing.three, alignItems: 'center' },
-  logout: { backgroundColor: '#d14343' },
+  logout: { backgroundColor: Brand.danger },
 });

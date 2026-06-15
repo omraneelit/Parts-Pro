@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
+import { Brand } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function TabsLayout() {
@@ -10,7 +11,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: true,
-        tabBarActiveTintColor: '#3c87f7',
+        tabBarActiveTintColor: Brand.accent,
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: { backgroundColor: theme.background },
         headerStyle: { backgroundColor: theme.background },

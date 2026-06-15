@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
@@ -44,6 +45,7 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
         <RootNavigator />
+        <StatusBar style="auto" />
       </AuthProvider>
     </ThemeProvider>
   );
