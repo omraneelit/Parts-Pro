@@ -94,6 +94,20 @@ export function register(email: string, password: string, name: string, phone?: 
   });
 }
 
+export function forgotPassword(email: string) {
+  return request<{ message: string }>('/partspro/auth/forgot-password', {
+    method: 'POST',
+    body: { email },
+  });
+}
+
+export function resetPassword(email: string, code: string, newPassword: string) {
+  return request<AuthTokenResponse>('/partspro/auth/reset-password', {
+    method: 'POST',
+    body: { email, code, new_password: newPassword },
+  });
+}
+
 export function getMe(token: string) {
   return request<Subscriber>('/partspro/me', { token });
 }
@@ -112,19 +126,39 @@ export function getSettings() {
 }
 
 // ---- Catalog (live products from the shared collection) ----
+export const CATALOG_PAGE_SIZE = 30;
+
 export function getCatalog(
   token: string,
-  params: { q?: string; device?: string } = {},
+  params: { q?: string; device?: string; page?: number } = {},
 ) {
   return request<Product[]>('/partspro/catalog', {
     token,
-    query: { q: params.q, device: params.device, limit: 100 },
+    query: {
+      q: params.q,
+      device: params.device,
+      page: params.page ?? 1,
+      limit: CATALOG_PAGE_SIZE,
+    },
   });
 }
 
 // ---- Orders ----
 export function getOrders(token: string) {
   return request<Order[]>('/partspro/orders', { token });
+}
+
+// ---- Self-serve billing (Stripe; disabled until configured server-side) ----
+export function getBillingStatus() {
+  return request<{ enabled: boolean }>('/partspro/billing/status');
+}
+
+export function startCheckout(token: string, plan: 'monthly' | 'annual') {
+  return request<{ url: string }>('/partspro/billing/checkout', {
+    method: 'POST',
+    body: { plan },
+    token,
+  });
 }
 
 export type { AuthTokenResponse, Order, PartsProSettings, Plan, Product, Subscriber };

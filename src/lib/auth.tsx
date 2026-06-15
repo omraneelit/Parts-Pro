@@ -21,6 +21,7 @@ interface AuthState {
   isActive: boolean; // subscription active (gates member pricing/catalog)
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, phone?: string) => Promise<void>;
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -71,6 +72,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [login],
   );
 
+  const resetPassword = useCallback(
+    async (email: string, code: string, newPassword: string) => {
+      const res = await api.resetPassword(email, code, newPassword);
+      await storageSet(TOKEN_KEY, res.access_token);
+      const me = await api.getMe(res.access_token);
+      setToken(res.access_token);
+      setSubscriber(me);
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
     await storageDelete(TOKEN_KEY);
     setToken(null);
@@ -94,10 +106,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isActive: subscriber?.status === 'active',
       login,
       register,
+      resetPassword,
       logout,
       refresh,
     }),
-    [token, subscriber, loading, login, register, logout, refresh],
+    [token, subscriber, loading, login, register, resetPassword, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

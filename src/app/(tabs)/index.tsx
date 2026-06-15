@@ -1,13 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -30,10 +23,13 @@ export default function CatalogScreen() {
   const [mode, setMode] = useState<SearchMode>('part');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inactive, setInactive] = useState(false);
 
   const reqId = useRef(0);
+  const pageRef = useRef(1);
   // Keep the latest search in refs so the focus refetch uses the current query
   // instead of a stale closure (otherwise refocus silently resets to the full list).
   const queryRef = useRef(query);
@@ -45,13 +41,15 @@ export default function CatalogScreen() {
     async (q: string, m: SearchMode) => {
       if (!token) return;
       const id = ++reqId.current;
+      pageRef.current = 1;
       setLoading(true);
       setError(null);
       try {
         const params = m === 'device' ? { device: q } : { q };
-        const data = await api.getCatalog(token, params);
+        const data = await api.getCatalog(token, { ...params, page: 1 });
         if (id === reqId.current) {
           setProducts(data);
+          setHasMore(data.length === api.CATALOG_PAGE_SIZE);
           setInactive(false);
         }
       } catch (e) {
@@ -59,6 +57,7 @@ export default function CatalogScreen() {
         if (e instanceof ApiError && e.status === 402) {
           setInactive(true);
           setProducts([]);
+          setHasMore(false);
         } else {
           setError(e instanceof Error ? e.message : 'Something went wrong');
         }
@@ -68,6 +67,29 @@ export default function CatalogScreen() {
     },
     [token],
   );
+
+  // Append the next page when the list nears its end.
+  const loadMore = useCallback(async () => {
+    if (!token || loadingMore || !hasMore || loading) return;
+    const id = reqId.current; // tie to the active search; abort if it changes
+    setLoadingMore(true);
+    try {
+      const nextPage = pageRef.current + 1;
+      const m = modeRef.current;
+      const q = queryRef.current.trim();
+      const params = m === 'device' ? { device: q } : { q };
+      const data = await api.getCatalog(token, { ...params, page: nextPage });
+      if (id === reqId.current) {
+        pageRef.current = nextPage;
+        setProducts((prev) => [...prev, ...data]);
+        setHasMore(data.length === api.CATALOG_PAGE_SIZE);
+      }
+    } catch {
+      /* keep what we have; user can pull to refresh */
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [token, loadingMore, hasMore, loading]);
 
   // Refetch whenever the tab regains focus so stock/prices stay live (v1: no
   // websockets — focus refetch is enough, per the build plan).
@@ -161,6 +183,15 @@ export default function CatalogScreen() {
               </ThemedText>
             </Centered>
           }
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footer}>
+                <ActivityIndicator />
+              </View>
+            ) : null
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
           refreshing={loading}
           onRefresh={onSubmit}
         />
@@ -278,6 +309,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   center: { textAlign: 'center' },
+  footer: { paddingVertical: Spacing.three },
   retry: {
     backgroundColor: Brand.accent,
     paddingHorizontal: Spacing.four,

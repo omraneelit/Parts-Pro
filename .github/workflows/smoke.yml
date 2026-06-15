@@ -1,0 +1,24 @@
+name: API smoke test
+
+# Runs the Parts Pro API smoke test against the live backend. Trigger it
+# manually after a backend deploy, or on a schedule, to catch regressions.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Backend base URL (including /api)
+        required: false
+        default: https://backend-earnest-glow-6275.fly.dev/api
+  schedule:
+    - cron: '0 7 * * *' # daily 07:00 UTC
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run smoke test
+        run: node scripts/smoke.mjs "${{ github.event.inputs.base_url || 'https://backend-earnest-glow-6275.fly.dev/api' }}"

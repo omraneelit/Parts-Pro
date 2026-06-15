@@ -14,31 +14,63 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
+type Mode = 'login' | 'register' | 'forgot' | 'reset';
+
+const SUBTITLE: Record<Mode, string> = {
+  login: 'Sign in to your member account',
+  register: 'Create your member account',
+  forgot: 'Reset your password',
+  reset: 'Enter the code we emailed you',
+};
+
+const CTA: Record<Mode, string> = {
+  login: 'Sign in',
+  register: 'Create account',
+  forgot: 'Send reset code',
+  reset: 'Reset password',
+};
+
 export default function LoginScreen() {
   const theme = useTheme();
-  const { login, register } = useAuth();
+  const { login, register, resetPassword } = useAuth();
 
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const go = (m: Mode) => {
+    setMode(m);
+    setError(null);
+    setInfo(null);
+  };
 
   const submit = async () => {
     setError(null);
+    setInfo(null);
     setBusy(true);
     try {
       if (mode === 'login') {
         await login(email.trim(), password);
-      } else {
+      } else if (mode === 'register') {
         await register(email.trim(), password, name.trim(), phone.trim() || undefined);
+      } else if (mode === 'forgot') {
+        const res = await api.forgotPassword(email.trim());
+        setInfo(res.message);
+        setMode('reset');
+      } else {
+        await resetPassword(email.trim(), code.trim(), password);
       }
-      // Navigation is handled by the auth gate in the root layout.
+      // Successful auth navigations are handled by the root layout's gate.
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
     } finally {
@@ -56,9 +88,7 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <ThemedText type="title">Parts Pro</ThemedText>
-            <ThemedText themeColor="textSecondary">
-              {mode === 'login' ? 'Sign in to your member account' : 'Create your member account'}
-            </ThemedText>
+            <ThemedText themeColor="textSecondary">{SUBTITLE[mode]}</ThemedText>
           </View>
 
           {mode === 'register' ? (
@@ -94,15 +124,41 @@ export default function LoginScreen() {
             />
           ) : null}
 
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            placeholderTextColor={theme.textSecondary}
-            secureTextEntry
-            style={inputStyle}
-          />
+          {mode === 'reset' ? (
+            <TextInput
+              value={code}
+              onChangeText={setCode}
+              placeholder="Reset code"
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="number-pad"
+              style={inputStyle}
+            />
+          ) : null}
 
+          {mode !== 'forgot' ? (
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder={mode === 'reset' ? 'New password' : 'Password'}
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              style={inputStyle}
+            />
+          ) : null}
+
+          {mode === 'login' ? (
+            <Pressable onPress={() => go('forgot')} style={styles.forgotLink}>
+              <ThemedText type="small" style={{ color: Brand.accent }}>
+                Forgot password?
+              </ThemedText>
+            </Pressable>
+          ) : null}
+
+          {info ? (
+            <ThemedText type="small" style={{ color: Brand.success }}>
+              {info}
+            </ThemedText>
+          ) : null}
           {error ? (
             <ThemedText type="small" style={{ color: Brand.danger }}>
               {error}
@@ -114,24 +170,27 @@ export default function LoginScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <ThemedText type="smallBold" style={{ color: '#fff' }}>
-                {mode === 'login' ? 'Sign in' : 'Create account'}
+                {CTA[mode]}
               </ThemedText>
             )}
           </Pressable>
 
-          <Pressable
-            onPress={() => {
-              setMode(mode === 'login' ? 'register' : 'login');
-              setError(null);
-            }}
-            style={styles.switch}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {mode === 'login' ? "Don't have an account? " : 'Already a member? '}
-              <ThemedText type="smallBold" style={{ color: Brand.accent }}>
-                {mode === 'login' ? 'Sign up' : 'Sign in'}
+          {mode === 'login' || mode === 'register' ? (
+            <Pressable onPress={() => go(mode === 'login' ? 'register' : 'login')} style={styles.switch}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {mode === 'login' ? "Don't have an account? " : 'Already a member? '}
+                <ThemedText type="smallBold" style={{ color: Brand.accent }}>
+                  {mode === 'login' ? 'Sign up' : 'Sign in'}
+                </ThemedText>
               </ThemedText>
-            </ThemedText>
-          </Pressable>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => go('login')} style={styles.switch}>
+              <ThemedText type="smallBold" style={{ color: Brand.accent }}>
+                Back to sign in
+              </ThemedText>
+            </Pressable>
+          )}
 
           {mode === 'register' ? (
             <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
@@ -155,6 +214,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     fontSize: 16,
   },
+  forgotLink: { alignSelf: 'flex-end' },
   primaryBtn: {
     backgroundColor: Brand.accent,
     padding: Spacing.three,
