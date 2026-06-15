@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +10,7 @@ import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useCart } from '@/lib/cart';
 import { formatMoney, regularWholesale } from '@/lib/format';
 import type { Product } from '@/lib/types';
 
@@ -17,7 +18,9 @@ type SearchMode = 'part' | 'device';
 
 export default function CatalogScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const { token, isActive } = useAuth();
+  const cart = useCart();
 
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('part');
@@ -187,7 +190,7 @@ export default function CatalogScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <ProductRow product={item} showMember={isActive} />
+            <ProductRow product={item} showMember={isActive} onAdd={() => cart.add(item)} />
           )}
           ListEmptyComponent={
             <Centered>
@@ -209,11 +212,30 @@ export default function CatalogScreen() {
           onRefresh={onSubmit}
         />
       )}
+
+      {cart.count > 0 ? (
+        <Pressable style={styles.cartBar} onPress={() => router.push('/cart')}>
+          <ThemedText type="smallBold" style={{ color: '#fff' }}>
+            View cart · {cart.count} item{cart.count === 1 ? '' : 's'}
+          </ThemedText>
+          <ThemedText type="smallBold" style={{ color: '#fff' }}>
+            {formatMoney(cart.total)}
+          </ThemedText>
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }
 
-function ProductRow({ product, showMember }: { product: Product; showMember: boolean }) {
+function ProductRow({
+  product,
+  showMember,
+  onAdd,
+}: {
+  product: Product;
+  showMember: boolean;
+  onAdd: () => void;
+}) {
   const theme = useTheme();
   const regular = regularWholesale(product);
   const member = product.member_price;
@@ -277,6 +299,13 @@ function ProductRow({ product, showMember }: { product: Product; showMember: boo
         ) : (
           <ThemedText type="smallBold">{formatMoney(regular)}</ThemedText>
         )}
+        {showMember && !out ? (
+          <Pressable onPress={onAdd} style={styles.addBtn} hitSlop={6}>
+            <ThemedText type="small" style={{ color: '#fff' }}>
+              + Add
+            </ThemedText>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -312,8 +341,28 @@ const styles = StyleSheet.create({
   },
   thumb: { width: 56, height: 56, borderRadius: Spacing.two },
   cardBody: { flex: 1, gap: 2 },
-  priceCol: { alignItems: 'flex-end', minWidth: 84, gap: 1 },
+  priceCol: { alignItems: 'flex-end', minWidth: 84, gap: 2 },
   strike: { textDecorationLine: 'line-through' },
+  addBtn: {
+    marginTop: 4,
+    backgroundColor: Brand.accent,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: Spacing.two,
+  },
+  cartBar: {
+    position: 'absolute',
+    left: Spacing.three,
+    right: Spacing.three,
+    bottom: Spacing.three,
+    backgroundColor: Brand.accent,
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   centered: {
     flex: 1,
     alignItems: 'center',

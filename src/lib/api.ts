@@ -149,6 +149,10 @@ export function getOrders(token: string) {
   return request<Order[]>('/partspro/orders', { token });
 }
 
+export function placeOrder(token: string, items: { product_id: string; qty: number }[]) {
+  return request<Order>('/partspro/orders', { method: 'POST', body: { items }, token });
+}
+
 // ---- Saved quotes ----
 export function getQuotes(token: string) {
   return request<SavedQuote[]>('/partspro/quotes', { token });

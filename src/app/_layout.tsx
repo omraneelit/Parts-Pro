@@ -5,6 +5,7 @@ import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { CartProvider } from '@/lib/cart';
 
 function RootNavigator() {
   const { token, loading } = useAuth();
@@ -35,6 +36,7 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="cart" options={{ headerShown: true, title: 'Cart', presentation: 'modal' }} />
     </Stack>
   );
 }
@@ -44,8 +46,10 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
-        <RootNavigator />
-        <StatusBar style="auto" />
+        <CartProvider>
+          <RootNavigator />
+          <StatusBar style="auto" />
+        </CartProvider>
       </AuthProvider>
     </ThemeProvider>
   );

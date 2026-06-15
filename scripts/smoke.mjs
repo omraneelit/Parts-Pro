@@ -118,6 +118,15 @@ async function main() {
   const cat = await call('/partspro/catalog', { token });
   check('GET /catalog is gated (402) while inactive', cat.status === 402, `status ${cat.status}`);
 
+  // Order placement must also be member-gated. (We don't place a real order in
+  // the smoke test — that would pollute the production orders collection.)
+  const orderGate = await call('/partspro/orders', {
+    method: 'POST',
+    token,
+    body: { items: [{ product_id: 'x', qty: 1 }] },
+  });
+  check('POST /orders is gated (402) while inactive', orderGate.status === 402, `status ${orderGate.status}`);
+
   const orders = await call('/partspro/orders', { token });
   check(
     'GET /orders returns a list',
