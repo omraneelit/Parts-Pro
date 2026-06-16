@@ -1,6 +1,7 @@
 import Slider from '@react-native-community/slider';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -287,13 +288,22 @@ export default function QuoteScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       <View style={styles.searchWrap}>
         <ThemedText type="smallBold">Pick a part to quote</ThemedText>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search part name or SKU"
-          placeholderTextColor={theme.textSecondary}
-          style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-        />
+        <View style={[styles.searchBox, { backgroundColor: theme.backgroundElement }]}>
+          <Ionicons name="search" size={18} color={theme.textSecondary} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            autoCorrect={false}
+            placeholder="Search part name or SKU"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.searchInput, { color: theme.text }]}
+          />
+          {query.length > 0 ? (
+            <Pressable onPress={() => setQuery('')} hitSlop={10}>
+              <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+            </Pressable>
+          ) : null}
+        </View>
         <Pressable onPress={() => setManual(true)} style={styles.manualBtn}>
           <ThemedText type="smallBold" style={{ color: Brand.accent }}>
             + Quote a custom part
@@ -399,6 +409,14 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   searchWrap: { padding: Spacing.three, gap: Spacing.two },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.three,
+  },
+  searchInput: { flex: 1, paddingVertical: Spacing.three, fontSize: 16 },
   manualBtn: { alignSelf: 'flex-start', paddingVertical: Spacing.one },
   input: {
     borderRadius: Spacing.three,

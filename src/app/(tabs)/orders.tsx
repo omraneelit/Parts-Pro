@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Skeleton } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -41,8 +42,17 @@ export default function OrdersScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator />
+        <View style={styles.list}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <View key={i} style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+              <View style={styles.rowBetween}>
+                <Skeleton width={120} height={14} />
+                <Skeleton width={56} height={14} />
+              </View>
+              <Skeleton width="55%" height={12} />
+              <Skeleton width="80%" height={12} />
+            </View>
+          ))}
         </View>
       ) : error ? (
         <View style={styles.centered}>

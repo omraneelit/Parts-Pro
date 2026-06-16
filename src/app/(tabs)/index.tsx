@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   FadeIn,
   FadeInDown,
+  FadeOut,
+  FadeOutDown,
   SlideInDown,
   SlideOutDown,
   useAnimatedStyle,
@@ -45,6 +47,8 @@ export default function CatalogScreen() {
   const bumpStyle = useAnimatedStyle(() => ({ transform: [{ scale: bump.value }] }));
 
   const [discountPct, setDiscountPct] = useState<number | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -154,6 +158,16 @@ export default function CatalogScreen() {
     catRef.current = id;
     load(query.trim(), mode);
   };
+
+  const addToCart = (item: Product) => {
+    cart.add(item);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(`Added ${item.name_en}`);
+    toastTimer.current = setTimeout(() => setToast(null), 1400);
+  };
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
 
   const trialDaysLeft =
     tier === 'trial' && subscriber?.trial_ends_at
@@ -305,7 +319,7 @@ export default function CatalogScreen() {
               product={item}
               index={index}
               showMember={isMember}
-              onAdd={() => cart.add(item)}
+              onAdd={() => addToCart(item)}
             />
           )}
           ListEmptyComponent={
@@ -328,6 +342,20 @@ export default function CatalogScreen() {
           onRefresh={onSubmit}
         />
       )}
+
+      {toast ? (
+        <Animated.View
+          key={toast}
+          entering={FadeInDown.duration(200)}
+          exiting={FadeOutDown.duration(200)}
+          style={[styles.toast, { bottom: cart.count > 0 ? 78 : Spacing.four }]}
+          pointerEvents="none">
+          <Ionicons name="checkmark-circle" size={16} color="#fff" />
+          <ThemedText type="small" style={{ color: '#fff' }} numberOfLines={1}>
+            {toast}
+          </ThemedText>
+        </Animated.View>
+      ) : null}
 
       {cart.count > 0 ? (
         <Animated.View
@@ -503,6 +531,18 @@ const styles = StyleSheet.create({
     left: Spacing.three,
     right: Spacing.three,
     bottom: Spacing.three,
+  },
+  toast: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    maxWidth: '86%',
+    backgroundColor: 'rgba(20,26,38,0.95)',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.four,
   },
   cartBar: {
     backgroundColor: Brand.accent,
