@@ -36,6 +36,7 @@ import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
 import { formatMoney, regularWholesale } from '@/lib/format';
+import { tapLight, tapSelection } from '@/lib/haptics';
 import type { Category, Product } from '@/lib/types';
 
 type SearchMode = 'part' | 'device';
@@ -163,6 +164,7 @@ export default function CatalogScreen() {
   }, []);
 
   const setCategory = (id: string | null) => {
+    tapSelection();
     setSelectedCat(id);
     catRef.current = id;
     load(query.trim(), mode);
@@ -170,6 +172,7 @@ export default function CatalogScreen() {
 
   const addToCart = (item: Product) => {
     cart.add(item);
+    tapLight();
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast(`Added ${item.name_en}`);
     toastTimer.current = setTimeout(() => setToast(null), 1400);
@@ -186,6 +189,7 @@ export default function CatalogScreen() {
   const onSubmit = () => load(query.trim(), mode);
 
   const switchMode = (m: SearchMode) => {
+    tapSelection();
     setMode(m);
     load(query.trim(), m);
   };

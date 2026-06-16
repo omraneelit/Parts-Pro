@@ -20,6 +20,7 @@ import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { notifyError, notifySuccess } from '@/lib/haptics';
 
 type Mode = 'login' | 'register' | 'forgot' | 'reset';
 
@@ -74,8 +75,10 @@ export default function LoginScreen() {
       } else {
         await resetPassword(email.trim(), code.trim(), password);
       }
+      notifySuccess();
       // Successful auth navigations are handled by the root layout's gate.
     } catch (e) {
+      notifyError();
       setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
     } finally {
       setBusy(false);
@@ -106,16 +109,18 @@ export default function LoginScreen() {
             />
           ) : null}
 
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email"
-            placeholderTextColor={theme.textSecondary}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            style={inputStyle}
-          />
+          <Animated.View entering={FadeInDown.duration(380).delay(120)}>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email"
+              placeholderTextColor={theme.textSecondary}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              style={inputStyle}
+            />
+          </Animated.View>
 
           {mode === 'register' ? (
             <TextInput
@@ -140,7 +145,9 @@ export default function LoginScreen() {
           ) : null}
 
           {mode !== 'forgot' ? (
-            <View style={[styles.passwordRow, { backgroundColor: theme.backgroundElement }]}>
+            <Animated.View
+              entering={FadeInDown.duration(380).delay(200)}
+              style={[styles.passwordRow, { backgroundColor: theme.backgroundElement }]}>
               <TextInput
                 value={password}
                 onChangeText={setPassword}
@@ -161,7 +168,7 @@ export default function LoginScreen() {
                   color={theme.textSecondary}
                 />
               </Pressable>
-            </View>
+            </Animated.View>
           ) : null}
 
           {mode === 'login' ? (

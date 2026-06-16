@@ -14,6 +14,7 @@ import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
 import { formatMoney, regularWholesale } from '@/lib/format';
+import { notifyError, notifySuccess } from '@/lib/haptics';
 
 export default function CartScreen() {
   const theme = useTheme();
@@ -31,6 +32,7 @@ export default function CartScreen() {
         lines.map((l) => ({ product_id: l.product.id, qty: l.qty })),
       );
       clear();
+      notifySuccess();
       Alert.alert('Order placed', 'Your order was sent. Track it on the Orders tab.', [
         {
           text: 'OK',
@@ -41,6 +43,7 @@ export default function CartScreen() {
         },
       ]);
     } catch (e) {
+      notifyError();
       Alert.alert('Could not place order', e instanceof ApiError ? e.message : 'Please try again.');
     } finally {
       setPlacing(false);

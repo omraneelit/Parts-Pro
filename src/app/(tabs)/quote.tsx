@@ -3,7 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/pressable-scale';
@@ -14,6 +20,7 @@ import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDate, formatMoney, regularWholesale } from '@/lib/format';
+import { notifySuccess } from '@/lib/haptics';
 import { MARKUP_KEY, storageGet, storageSet } from '@/lib/storage';
 import type { Product, SavedQuote } from '@/lib/types';
 
@@ -140,6 +147,13 @@ export default function QuoteScreen() {
       : null;
   const suggested = cost != null ? cost * (1 + markup / 100) : null;
 
+  // Pop the suggested price whenever it changes (markup slider / cost edit).
+  const priceScale = useSharedValue(1);
+  useEffect(() => {
+    priceScale.value = withSequence(withTiming(1.08, { duration: 110 }), withTiming(1, { duration: 130 }));
+  }, [suggested, priceScale]);
+  const priceStyle = useAnimatedStyle(() => ({ transform: [{ scale: priceScale.value }] }));
+
   const closeDetail = () => {
     setSelected(null);
     setManual(false);
@@ -159,6 +173,7 @@ export default function QuoteScreen() {
         customer_price: Math.round(suggested * 100) / 100,
       });
       await loadQuotes();
+      notifySuccess();
       Alert.alert('Saved', 'Quote saved. Find it under "Saved quotes".');
     } catch (e) {
       Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not save quote');
@@ -244,9 +259,11 @@ export default function QuoteScreen() {
             </Row>
             <View style={styles.divider} />
             <Row label="Suggested customer price">
-              <ThemedText type="subtitle" style={{ color: Brand.success }}>
-                {formatMoney(suggested)}
-              </ThemedText>
+              <Animated.View style={priceStyle}>
+                <ThemedText type="subtitle" style={{ color: Brand.success }}>
+                  {formatMoney(suggested)}
+                </ThemedText>
+              </Animated.View>
             </Row>
           </Animated.View>
 
