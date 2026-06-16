@@ -1,9 +1,10 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 
+import { AnimatedSplash } from '@/components/animated-splash';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { CartProvider } from '@/lib/cart';
 
@@ -43,12 +44,14 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [splashDone, setSplashDone] = useState(false);
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
         <CartProvider>
           <RootNavigator />
           <StatusBar style="auto" />
+          {!splashDone ? <AnimatedSplash onFinish={() => setSplashDone(true)} /> : null}
         </CartProvider>
       </AuthProvider>
     </ThemeProvider>

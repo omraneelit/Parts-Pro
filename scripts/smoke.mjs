@@ -129,6 +129,8 @@ async function main() {
     'trial catalog includes member_price',
     catItems.length === 0 || catItems.some((p) => p.member_price != null),
   );
+  const catFiltered = await call('/partspro/catalog?category_id=__none__', { token });
+  check('catalog accepts category_id filter', catFiltered.status === 200 && Array.isArray(catFiltered.body), `status ${catFiltered.status}`);
 
   // Quote usage: trial is unlimited.
   const usage = await call('/partspro/quote-usage', { method: 'POST', token });

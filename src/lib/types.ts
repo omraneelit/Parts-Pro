@@ -40,6 +40,12 @@ export interface Subscriber {
   created_at?: string | null;
 }
 
+export interface Category {
+  id: string;
+  name_en: string;
+  name_ar?: string;
+}
+
 export interface PartsProSettings {
   proDiscountPercent: number;
   trialLengthDays: number;

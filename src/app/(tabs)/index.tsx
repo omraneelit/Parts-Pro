@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Animated, { FadeInDown, SlideInDown, SlideOutDown } from 'react-native-reanimated';
@@ -14,7 +14,7 @@ import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
 import { formatMoney, regularWholesale } from '@/lib/format';
-import type { Product } from '@/lib/types';
+import type { Category, Product } from '@/lib/types';
 
 type SearchMode = 'part' | 'device';
 
@@ -25,6 +25,8 @@ export default function CatalogScreen() {
   const cart = useCart();
 
   const [discountPct, setDiscountPct] = useState<number | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('part');
   const [products, setProducts] = useState<Product[]>([]);
@@ -42,6 +44,8 @@ export default function CatalogScreen() {
   queryRef.current = query;
   const modeRef = useRef(mode);
   modeRef.current = mode;
+  const catRef = useRef<string | null>(selectedCat);
+  catRef.current = selectedCat;
 
   const load = useCallback(
     async (q: string, m: SearchMode) => {
@@ -52,7 +56,11 @@ export default function CatalogScreen() {
       setError(null);
       try {
         const params = m === 'device' ? { device: q } : { q };
-        const data = await api.getCatalog(token, { ...params, page: 1 });
+        const data = await api.getCatalog(token, {
+          ...params,
+          category_id: catRef.current ?? undefined,
+          page: 1,
+        });
         if (id === reqId.current) {
           setProducts(data);
           setHasMore(data.length === api.CATALOG_PAGE_SIZE);
@@ -84,7 +92,11 @@ export default function CatalogScreen() {
       const m = modeRef.current;
       const q = queryRef.current.trim();
       const params = m === 'device' ? { device: q } : { q };
-      const data = await api.getCatalog(token, { ...params, page: nextPage });
+      const data = await api.getCatalog(token, {
+        ...params,
+        category_id: catRef.current ?? undefined,
+        page: nextPage,
+      });
       if (id === reqId.current) {
         pageRef.current = nextPage;
         setProducts((prev) => [...prev, ...data]);
@@ -111,7 +123,17 @@ export default function CatalogScreen() {
       .getSettings()
       .then((s) => setDiscountPct(s.proDiscountPercent))
       .catch(() => {});
+    api
+      .getCategories()
+      .then(setCategories)
+      .catch(() => {});
   }, []);
+
+  const setCategory = (id: string | null) => {
+    setSelectedCat(id);
+    catRef.current = id;
+    load(query.trim(), mode);
+  };
 
   const trialDaysLeft =
     tier === 'trial' && subscriber?.trial_ends_at
@@ -176,6 +198,33 @@ export default function CatalogScreen() {
           })}
         </View>
       </View>
+
+      {categories.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chips}>
+          {[{ id: '', name_en: 'All' }, ...categories].map((c) => {
+            const id = c.id || null;
+            const selected = selectedCat === id;
+            return (
+              <Pressable
+                key={c.id || 'all'}
+                onPress={() => setCategory(id)}
+                style={[
+                  styles.chip,
+                  { backgroundColor: selected ? Brand.accent : theme.backgroundElement },
+                ]}>
+                <ThemedText
+                  type="small"
+                  style={{ color: selected ? '#fff' : theme.textSecondary }}>
+                  {c.name_en}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
 
       {tier === 'free' ? (
         <Pressable onPress={() => router.push('/account')} style={[styles.banner, { backgroundColor: Brand.accent }]}>
@@ -382,6 +431,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   segment: { flexDirection: 'row', gap: Spacing.two },
+  chips: { paddingHorizontal: Spacing.three, gap: Spacing.two, paddingBottom: Spacing.two },
+  chip: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: Spacing.four,
+  },
   segmentBtn: {
     flex: 1,
     alignItems: 'center',

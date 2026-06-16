@@ -3,6 +3,7 @@
 // place. The base URL comes from EXPO_PUBLIC_API_URL and already includes /api.
 import {
   AuthTokenResponse,
+  Category,
   Order,
   PartsProSettings,
   Plan,
@@ -132,17 +133,22 @@ export const CATALOG_PAGE_SIZE = 30;
 
 export function getCatalog(
   token: string,
-  params: { q?: string; device?: string; page?: number } = {},
+  params: { q?: string; device?: string; category_id?: string; page?: number } = {},
 ) {
   return request<Product[]>('/partspro/catalog', {
     token,
     query: {
       q: params.q,
       device: params.device,
+      category_id: params.category_id,
       page: params.page ?? 1,
       limit: CATALOG_PAGE_SIZE,
     },
   });
+}
+
+export function getCategories() {
+  return request<Category[]>('/categories');
 }
 
 // ---- Orders ----
@@ -197,6 +203,7 @@ export function startCheckout(token: string, plan: 'monthly' | 'annual') {
 
 export type {
   AuthTokenResponse,
+  Category,
   Order,
   PartsProSettings,
   Plan,

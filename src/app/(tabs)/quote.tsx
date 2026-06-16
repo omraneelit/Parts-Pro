@@ -37,6 +37,10 @@ export default function QuoteScreen() {
   const [markup, setMarkup] = useState(30);
   const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>([]);
   const [saving, setSaving] = useState(false);
+  // Manual quote: price a part that isn't in the catalog.
+  const [manual, setManual] = useState(false);
+  const [manualName, setManualName] = useState('');
+  const [manualCost, setManualCost] = useState('');
   const reqId = useRef(0);
 
   const loadQuotes = useCallback(async () => {
@@ -125,19 +129,30 @@ export default function QuoteScreen() {
     return () => clearTimeout(t);
   }, [query, search]);
 
-  // Cost basis: the member price (what the shop pays) when active, else wholesale.
+  // Cost basis: member price (what the shop pays) for members, else wholesale —
+  // or the manually-entered cost when quoting a custom part.
+  const title = selected ? selected.name_en : manualName.trim() || 'Custom part';
   const cost = selected
-    ? (isMember &&selected.member_price != null ? selected.member_price : regularWholesale(selected))
-    : null;
+    ? (isMember && selected.member_price != null ? selected.member_price : regularWholesale(selected))
+    : manual
+      ? Number(manualCost) || 0
+      : null;
   const suggested = cost != null ? cost * (1 + markup / 100) : null;
 
+  const closeDetail = () => {
+    setSelected(null);
+    setManual(false);
+    setManualName('');
+    setManualCost('');
+  };
+
   const saveCurrent = async () => {
-    if (!token || !selected || cost == null || suggested == null) return;
+    if (!token || cost == null || suggested == null) return;
     setSaving(true);
     try {
       await api.saveQuote(token, {
-        product_id: selected.id,
-        part_name: selected.name_en,
+        product_id: selected?.id,
+        part_name: title,
         cost: Math.round(cost * 100) / 100,
         markup_percent: markup,
         customer_price: Math.round(suggested * 100) / 100,
@@ -152,14 +167,9 @@ export default function QuoteScreen() {
   };
 
   const shareCurrent = () => {
-    if (!selected || cost == null || suggested == null) return;
+    if (cost == null || suggested == null) return;
     Share.share({
-      message: quoteText({
-        part_name: selected.name_en,
-        cost,
-        markup_percent: markup,
-        customer_price: suggested,
-      }),
+      message: quoteText({ part_name: title, cost, markup_percent: markup, customer_price: suggested }),
     });
   };
 
@@ -182,25 +192,48 @@ export default function QuoteScreen() {
     ]);
   };
 
-  if (selected) {
+  if (selected || manual) {
+    const memberCost = !!selected && isMember && selected.member_price != null;
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
         <View style={styles.detail}>
-          <Pressable onPress={() => setSelected(null)} style={styles.back}>
+          <Pressable onPress={closeDetail} style={styles.back}>
             <ThemedText type="smallBold" style={{ color: Brand.accent }}>
               ← Pick another part
             </ThemedText>
           </Pressable>
 
-          <ThemedText type="subtitle">{selected.name_en}</ThemedText>
-          {selected.sku ? (
-            <ThemedText themeColor="textSecondary">SKU {selected.sku}</ThemedText>
-          ) : null}
+          {manual ? (
+            <>
+              <TextInput
+                value={manualName}
+                onChangeText={setManualName}
+                placeholder="Part name"
+                placeholderTextColor={theme.textSecondary}
+                style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+              />
+              <TextInput
+                value={manualCost}
+                onChangeText={setManualCost}
+                placeholder="Your cost (e.g. 12.50)"
+                placeholderTextColor={theme.textSecondary}
+                keyboardType="decimal-pad"
+                style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+              />
+            </>
+          ) : (
+            <>
+              <ThemedText type="subtitle">{selected!.name_en}</ThemedText>
+              {selected!.sku ? (
+                <ThemedText themeColor="textSecondary">SKU {selected!.sku}</ThemedText>
+              ) : null}
+            </>
+          )}
 
           <Animated.View
             entering={FadeInDown.duration(240)}
             style={[styles.costBox, { backgroundColor: theme.backgroundElement }]}>
-            <Row label={isMember &&selected.member_price != null ? 'Your cost (member)' : 'Your cost'}>
+            <Row label={memberCost ? 'Your cost (member)' : 'Your cost'}>
               <ThemedText type="smallBold">{formatMoney(cost)}</ThemedText>
             </Row>
             <Row label={`Markup ${markup}%`}>
@@ -261,6 +294,11 @@ export default function QuoteScreen() {
           placeholderTextColor={theme.textSecondary}
           style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
         />
+        <Pressable onPress={() => setManual(true)} style={styles.manualBtn}>
+          <ThemedText type="smallBold" style={{ color: Brand.accent }}>
+            + Quote a custom part
+          </ThemedText>
+        </Pressable>
       </View>
       {loading ? (
         <View style={styles.centered}>
@@ -361,6 +399,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   searchWrap: { padding: Spacing.three, gap: Spacing.two },
+  manualBtn: { alignSelf: 'flex-start', paddingVertical: Spacing.one },
   input: {
     borderRadius: Spacing.three,
     paddingHorizontal: Spacing.three,
