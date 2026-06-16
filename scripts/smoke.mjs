@@ -84,6 +84,11 @@ async function main() {
     discountPct !== null,
     `status ${settings.status}`,
   );
+  check(
+    'settings include trialLengthDays + freeTierDailyQuoteLimit',
+    typeof settings.body?.trialLengthDays === 'number' &&
+      typeof settings.body?.freeTierDailyQuoteLimit === 'number',
+  );
 
   const reg = await call('/partspro/auth/register', {
     method: 'POST',
@@ -114,18 +119,24 @@ async function main() {
     typeof me.body?.created_at === 'string' && /(Z|\+00:00)$/.test(me.body.created_at),
     me.body?.created_at,
   );
+  check('new signup starts on a trial', me.body?.tier === 'trial' && !!me.body?.trial_ends_at, `tier ${me.body?.tier}`);
 
+  // Trial members get full catalog + member pricing (no 402 gate anymore).
   const cat = await call('/partspro/catalog', { token });
-  check('GET /catalog is gated (402) while inactive', cat.status === 402, `status ${cat.status}`);
+  const catItems = Array.isArray(cat.body) ? cat.body : [];
+  check('GET /catalog is open to trial members (200)', cat.status === 200 && Array.isArray(cat.body), `status ${cat.status}`);
+  check(
+    'trial catalog includes member_price',
+    catItems.length === 0 || catItems.some((p) => p.member_price != null),
+  );
 
-  // Order placement must also be member-gated. (We don't place a real order in
-  // the smoke test — that would pollute the production orders collection.)
-  const orderGate = await call('/partspro/orders', {
-    method: 'POST',
-    token,
-    body: { items: [{ product_id: 'x', qty: 1 }] },
-  });
-  check('POST /orders is gated (402) while inactive', orderGate.status === 402, `status ${orderGate.status}`);
+  // Quote usage: trial is unlimited.
+  const usage = await call('/partspro/quote-usage', { method: 'POST', token });
+  check('POST /quote-usage allows trial unlimited', usage.body?.allowed === true && usage.body?.tier === 'trial', `tier ${usage.body?.tier}`);
+
+  // Order endpoint reachable + validates (empty order -> 400, no real order made).
+  const emptyOrder = await call('/partspro/orders', { method: 'POST', token, body: { items: [] } });
+  check('POST /orders rejects an empty order (400)', emptyOrder.status === 400, `status ${emptyOrder.status}`);
 
   const orders = await call('/partspro/orders', { token });
   check(

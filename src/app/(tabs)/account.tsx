@@ -18,9 +18,20 @@ const PLAN_LABEL: Record<string, string> = {
   annual: 'Annual — $80/yr',
 };
 
+const TIER_LABEL: Record<string, string> = {
+  pro: 'Pro — Active',
+  trial: 'Free trial',
+  free: 'Free plan',
+};
+
+function daysUntil(iso?: string | null): number | null {
+  if (!iso) return null;
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+}
+
 export default function AccountScreen() {
   const theme = useTheme();
-  const { token, subscriber, isActive, logout, refresh } = useAuth();
+  const { token, subscriber, isActive, tier, logout, refresh } = useAuth();
 
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -28,12 +39,12 @@ export default function AccountScreen() {
   const [phone, setPhone] = useState(subscriber?.phone ?? '');
   const [saving, setSaving] = useState(false);
 
-  // Days until the membership lapses (for an "expiring soon" nudge).
-  const daysLeft =
-    isActive && subscriber?.expiry_date
-      ? Math.ceil((new Date(subscriber.expiry_date).getTime() - Date.now()) / 86400000)
-      : null;
+  // Days until Pro lapses (renewal nudge) or the trial ends.
+  const daysLeft = isActive ? daysUntil(subscriber?.expiry_date) : null;
   const expiringSoon = daysLeft !== null && daysLeft <= 7;
+  const trialDaysLeft = tier === 'trial' ? daysUntil(subscriber?.trial_ends_at) : null;
+  const renewLabel = tier === 'pro' ? 'Renew / extend' : 'Upgrade to Pro';
+  const highlight = tier === 'pro' || tier === 'trial';
 
   const onLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -108,17 +119,17 @@ export default function AccountScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Animated.View
           entering={FadeInDown.duration(240)}
-          style={[styles.statusCard, { backgroundColor: isActive ? Brand.successBg : theme.backgroundElement }]}>
-          <ThemedText type="small" style={{ color: isActive ? Brand.successText : theme.textSecondary }}>
-            SUBSCRIPTION
+          style={[styles.statusCard, { backgroundColor: highlight ? Brand.successBg : theme.backgroundElement }]}>
+          <ThemedText type="small" style={{ color: highlight ? Brand.successText : theme.textSecondary }}>
+            PLAN
           </ThemedText>
-          <ThemedText type="subtitle" style={{ color: isActive ? Brand.successText : theme.text }}>
-            {isActive ? 'Pro — Active' : 'Inactive'}
+          <ThemedText type="subtitle" style={{ color: highlight ? Brand.successText : theme.text }}>
+            {TIER_LABEL[tier] ?? 'Free plan'}
           </ThemedText>
-          {subscriber?.plan ? (
+          {tier === 'pro' && subscriber?.plan ? (
             <ThemedText themeColor="textSecondary">{PLAN_LABEL[subscriber.plan] ?? subscriber.plan}</ThemedText>
           ) : null}
-          {isActive && subscriber?.expiry_date ? (
+          {tier === 'pro' && subscriber?.expiry_date ? (
             <ThemedText themeColor="textSecondary">
               Renews / expires {formatDate(subscriber.expiry_date)}
             </ThemedText>
@@ -130,14 +141,21 @@ export default function AccountScreen() {
                 : 'Expires today — renew to keep member pricing.'}
             </ThemedText>
           ) : null}
-          {!isActive ? (
+          {tier === 'trial' ? (
+            <ThemedText type="smallBold" style={{ color: Brand.successText }}>
+              {trialDaysLeft && trialDaysLeft > 0
+                ? `${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left of full Pro access`
+                : 'Last day of your trial'}
+            </ThemedText>
+          ) : null}
+          {tier === 'free' ? (
             <ThemedText type="small" themeColor="textSecondary">
-              Activate your membership to unlock member pricing.
+              Upgrade to Pro for member pricing, unlimited quotes, and saved settings.
             </ThemedText>
           ) : null}
           <PressableScale onPress={renew} style={styles.renewBtn}>
             <ThemedText type="smallBold" style={{ color: '#fff' }}>
-              {isActive ? 'Renew / extend' : 'Activate membership'}
+              {renewLabel}
             </ThemedText>
           </PressableScale>
         </Animated.View>

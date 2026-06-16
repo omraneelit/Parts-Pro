@@ -21,9 +21,10 @@ type SearchMode = 'part' | 'device';
 export default function CatalogScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { token, isActive } = useAuth();
+  const { token, isMember, tier, subscriber } = useAuth();
   const cart = useCart();
 
+  const [discountPct, setDiscountPct] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('part');
   const [products, setProducts] = useState<Product[]>([]);
@@ -104,6 +105,19 @@ export default function CatalogScreen() {
     }, [load]),
   );
 
+  // The member-discount percent (for the upgrade banner copy).
+  useEffect(() => {
+    api
+      .getSettings()
+      .then((s) => setDiscountPct(s.proDiscountPercent))
+      .catch(() => {});
+  }, []);
+
+  const trialDaysLeft =
+    tier === 'trial' && subscriber?.trial_ends_at
+      ? Math.ceil((new Date(subscriber.trial_ends_at).getTime() - Date.now()) / 86400000)
+      : null;
+
   const onSubmit = () => load(query.trim(), mode);
 
   const switchMode = (m: SearchMode) => {
@@ -163,6 +177,24 @@ export default function CatalogScreen() {
         </View>
       </View>
 
+      {tier === 'free' ? (
+        <Pressable onPress={() => router.push('/account')} style={[styles.banner, { backgroundColor: Brand.accent }]}>
+          <ThemedText type="small" style={{ color: '#fff', flex: 1 }}>
+            {discountPct != null
+              ? `Pro members save ${discountPct}% on every order. Upgrade →`
+              : 'Upgrade to Pro for member pricing →'}
+          </ThemedText>
+        </Pressable>
+      ) : trialDaysLeft != null && trialDaysLeft <= 2 ? (
+        <Pressable onPress={() => router.push('/account')} style={[styles.banner, { backgroundColor: theme.backgroundElement }]}>
+          <ThemedText type="small" style={{ flex: 1 }}>
+            {trialDaysLeft > 0
+              ? `Your trial ends in ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} — subscribe to keep member pricing →`
+              : 'Your trial ends today — subscribe to keep member pricing →'}
+          </ThemedText>
+        </Pressable>
+      ) : null}
+
       {inactive ? (
         <Centered>
           <ThemedText type="subtitle" style={styles.center}>
@@ -195,7 +227,7 @@ export default function CatalogScreen() {
             <ProductRow
               product={item}
               index={index}
-              showMember={isActive}
+              showMember={isMember}
               onAdd={() => cart.add(item)}
             />
           )}
@@ -334,6 +366,15 @@ function Centered({ children }: { children: React.ReactNode }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   searchWrap: { padding: Spacing.three, gap: Spacing.two },
+  banner: {
+    marginHorizontal: Spacing.three,
+    marginBottom: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   input: {
     borderRadius: Spacing.three,
     paddingHorizontal: Spacing.three,

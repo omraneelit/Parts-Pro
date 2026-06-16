@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/pressable-scale';
@@ -45,6 +46,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -138,14 +140,28 @@ export default function LoginScreen() {
           ) : null}
 
           {mode !== 'forgot' ? (
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder={mode === 'reset' ? 'New password' : 'Password'}
-              placeholderTextColor={theme.textSecondary}
-              secureTextEntry
-              style={inputStyle}
-            />
+            <View style={[styles.passwordRow, { backgroundColor: theme.backgroundElement }]}>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder={mode === 'reset' ? 'New password' : 'Password'}
+                placeholderTextColor={theme.textSecondary}
+                secureTextEntry={!showPassword}
+                style={[styles.passwordInput, { color: theme.text }]}
+              />
+              <Pressable
+                onPress={() => setShowPassword((s) => !s)}
+                hitSlop={10}
+                style={styles.eyeBtn}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color={theme.textSecondary}
+                />
+              </Pressable>
+            </View>
           ) : null}
 
           {mode === 'login' ? (
@@ -216,6 +232,19 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     fontSize: 16,
   },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: Spacing.three,
+    paddingRight: Spacing.three,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    fontSize: 16,
+  },
+  eyeBtn: { padding: Spacing.one },
   forgotLink: { alignSelf: 'flex-end' },
   primaryBtn: {
     backgroundColor: Brand.accent,

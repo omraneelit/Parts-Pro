@@ -12,13 +12,15 @@ import {
 
 import * as api from './api';
 import { storageDelete, storageGet, storageSet, TOKEN_KEY } from './storage';
-import type { Subscriber } from './types';
+import type { Subscriber, Tier } from './types';
 
 interface AuthState {
   token: string | null;
   subscriber: Subscriber | null;
   loading: boolean; // initial token restore in progress
-  isActive: boolean; // subscription active (gates member pricing/catalog)
+  tier: Tier; // 'trial' | 'free' | 'pro'
+  isMember: boolean; // trial or pro — gets member pricing
+  isActive: boolean; // paid Pro specifically
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, phone?: string) => Promise<void>;
   resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
@@ -98,11 +100,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [token]);
 
+  const tier: Tier = subscriber?.tier ?? 'free';
   const value = useMemo<AuthState>(
     () => ({
       token,
       subscriber,
       loading,
+      tier,
+      isMember: tier === 'trial' || tier === 'pro',
       isActive: subscriber?.status === 'active',
       login,
       register,
@@ -110,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refresh,
     }),
-    [token, subscriber, loading, login, register, resetPassword, logout, refresh],
+    [token, subscriber, loading, tier, login, register, resetPassword, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

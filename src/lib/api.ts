@@ -7,15 +7,16 @@ import {
   PartsProSettings,
   Plan,
   Product,
+  QuoteUsage,
   SavedQuote,
   Subscriber,
 } from './types';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
-
-if (!BASE_URL) {
-  console.warn('EXPO_PUBLIC_API_URL is not set — check your .env file.');
-}
+// Fall back to the production backend if EXPO_PUBLIC_API_URL wasn't embedded at
+// build time (env vars are inlined by Metro; a stale/cleared build would
+// otherwise leave this empty and every request would fail with "Network error").
+const FALLBACK_API_URL = 'https://backend-earnest-glow-6275.fly.dev/api';
+const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim() || FALLBACK_API_URL;
 
 export class ApiError extends Error {
   status: number;
@@ -176,6 +177,11 @@ export function deleteQuote(token: string, id: string) {
   return request<void>(`/partspro/quotes/${id}`, { method: 'DELETE', token });
 }
 
+// Free-tier daily quote limiter (trial/pro always allowed).
+export function quoteUsage(token: string) {
+  return request<QuoteUsage>('/partspro/quote-usage', { method: 'POST', token });
+}
+
 // ---- Self-serve billing (Stripe; disabled until configured server-side) ----
 export function getBillingStatus() {
   return request<{ enabled: boolean }>('/partspro/billing/status');
@@ -189,4 +195,13 @@ export function startCheckout(token: string, plan: 'monthly' | 'annual') {
   });
 }
 
-export type { AuthTokenResponse, Order, PartsProSettings, Plan, Product, SavedQuote, Subscriber };
+export type {
+  AuthTokenResponse,
+  Order,
+  PartsProSettings,
+  Plan,
+  Product,
+  QuoteUsage,
+  SavedQuote,
+  Subscriber,
+};

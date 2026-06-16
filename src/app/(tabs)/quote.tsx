@@ -1,7 +1,7 @@
 import Slider from '@react-native-community/slider';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,7 +27,8 @@ function quoteText(q: { part_name: string; cost: number; markup_percent: number;
 
 export default function QuoteScreen() {
   const theme = useTheme();
-  const { token, isActive } = useAuth();
+  const router = useRouter();
+  const { token, isMember, tier } = useAuth();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
@@ -53,19 +54,48 @@ export default function QuoteScreen() {
     }, [loadQuotes]),
   );
 
-  // Restore the user's preferred default markup (persisted per device).
+  // Restore the saved default markup — only for members (trial/pro). Free users
+  // get a fresh default each session (saved markup is a member perk).
   useEffect(() => {
+    if (!isMember) return;
     (async () => {
       const saved = await storageGet(MARKUP_KEY);
       const n = saved ? Number(saved) : NaN;
       if (!Number.isNaN(n)) setMarkup(n);
     })();
-  }, []);
+  }, [isMember]);
 
-  const persistMarkup = useCallback((value: number) => {
-    setMarkup(value);
-    void storageSet(MARKUP_KEY, String(value));
-  }, []);
+  const persistMarkup = useCallback(
+    (value: number) => {
+      setMarkup(value);
+      if (isMember) void storageSet(MARKUP_KEY, String(value));
+    },
+    [isMember],
+  );
+
+  // Free tier: each generated quote counts against the daily limit. Trial/Pro
+  // are unlimited. Returns true if the quote may proceed.
+  const selectPart = async (item: Product) => {
+    if (tier === 'free' && token) {
+      try {
+        const usage = await api.quoteUsage(token);
+        if (!usage.allowed) {
+          Alert.alert(
+            'Daily quote limit reached',
+            `Free members get ${usage.limit ?? 'a few'} quotes per day. Upgrade to Pro for unlimited quotes.`,
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Upgrade', onPress: () => router.push('/account') },
+            ],
+          );
+          return;
+        }
+      } catch {
+        /* network hiccup — don't block the user */
+      }
+    }
+    setSelected(item);
+  };
 
   const search = useCallback(
     async (q: string) => {
@@ -97,7 +127,7 @@ export default function QuoteScreen() {
 
   // Cost basis: the member price (what the shop pays) when active, else wholesale.
   const cost = selected
-    ? (isActive && selected.member_price != null ? selected.member_price : regularWholesale(selected))
+    ? (isMember &&selected.member_price != null ? selected.member_price : regularWholesale(selected))
     : null;
   const suggested = cost != null ? cost * (1 + markup / 100) : null;
 
@@ -170,7 +200,7 @@ export default function QuoteScreen() {
           <Animated.View
             entering={FadeInDown.duration(240)}
             style={[styles.costBox, { backgroundColor: theme.backgroundElement }]}>
-            <Row label={isActive && selected.member_price != null ? 'Your cost (member)' : 'Your cost'}>
+            <Row label={isMember &&selected.member_price != null ? 'Your cost (member)' : 'Your cost'}>
               <ThemedText type="smallBold">{formatMoney(cost)}</ThemedText>
             </Row>
             <Row label={`Markup ${markup}%`}>
@@ -243,7 +273,7 @@ export default function QuoteScreen() {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => setSelected(item)}
+              onPress={() => selectPart(item)}
               style={[styles.row, { backgroundColor: theme.backgroundElement }]}>
               <View style={{ flex: 1 }}>
                 <ThemedText type="smallBold" numberOfLines={1}>
@@ -256,7 +286,7 @@ export default function QuoteScreen() {
                 ) : null}
               </View>
               <ThemedText type="smallBold">
-                {formatMoney(isActive && item.member_price != null ? item.member_price : regularWholesale(item))}
+                {formatMoney(isMember &&item.member_price != null ? item.member_price : regularWholesale(item))}
               </ThemedText>
             </Pressable>
           )}

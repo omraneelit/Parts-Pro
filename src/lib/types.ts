@@ -3,6 +3,7 @@
 // copy of this data — it reads it live from the shared API.
 
 export type Plan = 'monthly' | 'annual';
+export type Tier = 'trial' | 'free' | 'pro';
 
 export interface Product {
   id: string;
@@ -31,14 +32,25 @@ export interface Subscriber {
   name: string;
   phone?: string | null;
   status: 'active' | 'inactive';
+  tier?: Tier | null;
   plan?: Plan | null;
   start_date?: string | null;
   expiry_date?: string | null;
+  trial_ends_at?: string | null;
   created_at?: string | null;
 }
 
 export interface PartsProSettings {
   proDiscountPercent: number;
+  trialLengthDays: number;
+  freeTierDailyQuoteLimit: number;
+}
+
+export interface QuoteUsage {
+  allowed: boolean;
+  remaining: number | null;
+  tier: Tier;
+  limit?: number;
 }
 
 export interface OrderItem {
