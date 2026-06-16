@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -53,7 +55,11 @@ export default function CartScreen() {
         renderItem={({ item }) => {
           const unit = item.product.member_price ?? regularWholesale(item.product);
           return (
-            <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+            <Animated.View
+              entering={FadeIn.duration(180)}
+              exiting={FadeOut.duration(180)}
+              layout={LinearTransition.springify().damping(18)}
+              style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
               <View style={{ flex: 1 }}>
                 <ThemedText type="smallBold" numberOfLines={2}>
                   {item.product.name_en}
@@ -82,7 +88,7 @@ export default function CartScreen() {
                   Remove
                 </ThemedText>
               </Pressable>
-            </View>
+            </Animated.View>
           );
         }}
         ListEmptyComponent={
@@ -108,14 +114,14 @@ export default function CartScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             Final pricing is confirmed by the seller. Order is placed as pending.
           </ThemedText>
-          <Pressable
+          <PressableScale
             onPress={placeOrder}
             disabled={placing}
             style={[styles.placeBtn, placing && { opacity: 0.6 }]}>
             <ThemedText type="smallBold" style={{ color: '#fff' }}>
               {placing ? 'Placing…' : 'Place order'}
             </ThemedText>
-          </Pressable>
+          </PressableScale>
         </View>
       ) : null}
     </SafeAreaView>

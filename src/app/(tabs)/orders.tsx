@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -54,8 +55,10 @@ export default function OrdersScreen() {
           contentContainerStyle={styles.list}
           refreshing={loading}
           onRefresh={load}
-          renderItem={({ item }) => (
-            <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+          renderItem={({ item, index }) => (
+            <Animated.View
+              entering={FadeInDown.duration(220).delay(Math.min(index, 12) * 40)}
+              style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
               <View style={styles.rowBetween}>
                 <ThemedText type="smallBold">Order #{item.id.slice(-6)}</ThemedText>
                 <ThemedText type="smallBold" style={{ color: Brand.success }}>
@@ -79,7 +82,7 @@ export default function OrdersScreen() {
                     .join(', ')}
                 </ThemedText>
               ) : null}
-            </View>
+            </Animated.View>
           )}
           ListEmptyComponent={
             <View style={styles.centered}>

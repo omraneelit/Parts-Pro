@@ -9,8 +9,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -86,10 +88,10 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
+          <Animated.View style={styles.header} entering={FadeInDown.duration(300)}>
             <ThemedText type="title">Parts Pro</ThemedText>
             <ThemedText themeColor="textSecondary">{SUBTITLE[mode]}</ThemedText>
-          </View>
+          </Animated.View>
 
           {mode === 'register' ? (
             <TextInput
@@ -165,7 +167,7 @@ export default function LoginScreen() {
             </ThemedText>
           ) : null}
 
-          <Pressable onPress={submit} disabled={busy} style={[styles.primaryBtn, busy && { opacity: 0.6 }]}>
+          <PressableScale onPress={submit} disabled={busy} style={[styles.primaryBtn, busy && { opacity: 0.6 }]}>
             {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -173,7 +175,7 @@ export default function LoginScreen() {
                 {CTA[mode]}
               </ThemedText>
             )}
-          </Pressable>
+          </PressableScale>
 
           {mode === 'login' || mode === 'register' ? (
             <Pressable onPress={() => go(mode === 'login' ? 'register' : 'login')} style={styles.switch}>

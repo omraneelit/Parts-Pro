@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
+import Animated, { FadeInDown, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -189,8 +191,13 @@ export default function CatalogScreen() {
           data={products}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <ProductRow product={item} showMember={isActive} onAdd={() => cart.add(item)} />
+          renderItem={({ item, index }) => (
+            <ProductRow
+              product={item}
+              index={index}
+              showMember={isActive}
+              onAdd={() => cart.add(item)}
+            />
           )}
           ListEmptyComponent={
             <Centered>
@@ -214,14 +221,19 @@ export default function CatalogScreen() {
       )}
 
       {cart.count > 0 ? (
-        <Pressable style={styles.cartBar} onPress={() => router.push('/cart')}>
-          <ThemedText type="smallBold" style={{ color: '#fff' }}>
-            View cart · {cart.count} item{cart.count === 1 ? '' : 's'}
-          </ThemedText>
-          <ThemedText type="smallBold" style={{ color: '#fff' }}>
-            {formatMoney(cart.total)}
-          </ThemedText>
-        </Pressable>
+        <Animated.View
+          entering={SlideInDown.springify().damping(18)}
+          exiting={SlideOutDown.duration(180)}
+          style={styles.cartBarWrap}>
+          <Pressable style={styles.cartBar} onPress={() => router.push('/cart')}>
+            <ThemedText type="smallBold" style={{ color: '#fff' }}>
+              View cart · {cart.count} item{cart.count === 1 ? '' : 's'}
+            </ThemedText>
+            <ThemedText type="smallBold" style={{ color: '#fff' }}>
+              {formatMoney(cart.total)}
+            </ThemedText>
+          </Pressable>
+        </Animated.View>
       ) : null}
     </SafeAreaView>
   );
@@ -229,10 +241,12 @@ export default function CatalogScreen() {
 
 function ProductRow({
   product,
+  index,
   showMember,
   onAdd,
 }: {
   product: Product;
+  index: number;
   showMember: boolean;
   onAdd: () => void;
 }) {
@@ -254,7 +268,9 @@ function ProductRow({
   const out = stockLabel === 'Out of stock';
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+    <Animated.View
+      entering={FadeInDown.duration(220).delay(Math.min(index, 12) * 35)}
+      style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
       {product.image ? (
         <Image source={{ uri: product.image }} style={styles.thumb} />
       ) : (
@@ -300,14 +316,14 @@ function ProductRow({
           <ThemedText type="smallBold">{formatMoney(regular)}</ThemedText>
         )}
         {showMember && !out ? (
-          <Pressable onPress={onAdd} style={styles.addBtn} hitSlop={6}>
+          <PressableScale onPress={onAdd} style={styles.addBtn} hitSlop={6} down={0.9}>
             <ThemedText type="small" style={{ color: '#fff' }}>
               + Add
             </ThemedText>
-          </Pressable>
+          </PressableScale>
         ) : null}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -350,11 +366,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     borderRadius: Spacing.two,
   },
-  cartBar: {
+  cartBarWrap: {
     position: 'absolute',
     left: Spacing.three,
     right: Spacing.three,
     bottom: Spacing.three,
+  },
+  cartBar: {
     backgroundColor: Brand.accent,
     borderRadius: Spacing.three,
     paddingHorizontal: Spacing.four,

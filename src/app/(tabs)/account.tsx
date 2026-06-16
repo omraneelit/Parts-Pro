@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -104,7 +106,9 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={[styles.statusCard, { backgroundColor: isActive ? Brand.successBg : theme.backgroundElement }]}>
+        <Animated.View
+          entering={FadeInDown.duration(240)}
+          style={[styles.statusCard, { backgroundColor: isActive ? Brand.successBg : theme.backgroundElement }]}>
           <ThemedText type="small" style={{ color: isActive ? Brand.successText : theme.textSecondary }}>
             SUBSCRIPTION
           </ThemedText>
@@ -131,14 +135,16 @@ export default function AccountScreen() {
               Activate your membership to unlock member pricing.
             </ThemedText>
           ) : null}
-          <Pressable onPress={renew} style={styles.renewBtn}>
+          <PressableScale onPress={renew} style={styles.renewBtn}>
             <ThemedText type="smallBold" style={{ color: '#fff' }}>
               {isActive ? 'Renew / extend' : 'Activate membership'}
             </ThemedText>
-          </Pressable>
-        </View>
+          </PressableScale>
+        </Animated.View>
 
-        <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+        <Animated.View
+          entering={FadeInDown.duration(240).delay(80)}
+          style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
           <View style={styles.cardHeader}>
             <ThemedText type="small" themeColor="textSecondary">
               PROFILE
@@ -193,7 +199,7 @@ export default function AccountScreen() {
               ) : null}
             </>
           )}
-        </View>
+        </Animated.View>
 
         <Pressable onPress={onRefresh} disabled={busy} style={[styles.btn, { backgroundColor: theme.backgroundElement }]}>
           <ThemedText type="smallBold">{busy ? 'Refreshing…' : 'Refresh status'}</ThemedText>

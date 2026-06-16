@@ -2,8 +2,10 @@ import Slider from '@react-native-community/slider';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -165,7 +167,9 @@ export default function QuoteScreen() {
             <ThemedText themeColor="textSecondary">SKU {selected.sku}</ThemedText>
           ) : null}
 
-          <View style={[styles.costBox, { backgroundColor: theme.backgroundElement }]}>
+          <Animated.View
+            entering={FadeInDown.duration(240)}
+            style={[styles.costBox, { backgroundColor: theme.backgroundElement }]}>
             <Row label={isActive && selected.member_price != null ? 'Your cost (member)' : 'Your cost'}>
               <ThemedText type="smallBold">{formatMoney(cost)}</ThemedText>
             </Row>
@@ -180,7 +184,7 @@ export default function QuoteScreen() {
                 {formatMoney(suggested)}
               </ThemedText>
             </Row>
-          </View>
+          </Animated.View>
 
           <ThemedText type="smallBold">Markup: {markup}%</ThemedText>
           <Slider
@@ -197,19 +201,19 @@ export default function QuoteScreen() {
           </ThemedText>
 
           <View style={styles.actionRow}>
-            <Pressable
+            <PressableScale
               onPress={saveCurrent}
               disabled={saving}
               style={[styles.actionBtn, { backgroundColor: Brand.accent }, saving && { opacity: 0.6 }]}>
               <ThemedText type="smallBold" style={{ color: '#fff' }}>
                 {saving ? 'Saving…' : 'Save quote'}
               </ThemedText>
-            </Pressable>
-            <Pressable
+            </PressableScale>
+            <PressableScale
               onPress={shareCurrent}
               style={[styles.actionBtn, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="smallBold">Share</ThemedText>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
       </SafeAreaView>
@@ -268,8 +272,11 @@ export default function QuoteScreen() {
                 <ThemedText type="smallBold" themeColor="textSecondary" style={styles.savedHeader}>
                   SAVED QUOTES
                 </ThemedText>
-                {savedQuotes.map((q) => (
-                  <View key={q.id} style={[styles.savedCard, { backgroundColor: theme.backgroundElement }]}>
+                {savedQuotes.map((q, i) => (
+                  <Animated.View
+                    key={q.id}
+                    entering={FadeInDown.duration(220).delay(Math.min(i, 10) * 40)}
+                    style={[styles.savedCard, { backgroundColor: theme.backgroundElement }]}>
                     <View style={{ flex: 1 }}>
                       <ThemedText type="smallBold" numberOfLines={1}>
                         {q.part_name}
@@ -295,7 +302,7 @@ export default function QuoteScreen() {
                         Delete
                       </ThemedText>
                     </Pressable>
-                  </View>
+                  </Animated.View>
                 ))}
               </View>
             ) : (
