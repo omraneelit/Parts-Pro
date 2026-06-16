@@ -2,10 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
-import Animated, { FadeInDown, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  SlideInDown,
+  SlideOutDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/pressable-scale';
+import { ProductSkeleton } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -23,6 +34,15 @@ export default function CatalogScreen() {
   const router = useRouter();
   const { token, isMember, tier, subscriber } = useAuth();
   const cart = useCart();
+
+  // Bump the cart bar whenever the item count changes (tactile "added" feedback).
+  const bump = useSharedValue(1);
+  useEffect(() => {
+    if (cart.count > 0) {
+      bump.value = withSequence(withTiming(1.06, { duration: 110 }), withTiming(1, { duration: 130 }));
+    }
+  }, [cart.count, bump]);
+  const bumpStyle = useAnimatedStyle(() => ({ transform: [{ scale: bump.value }] }));
 
   const [discountPct, setDiscountPct] = useState<number | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -155,7 +175,7 @@ export default function CatalogScreen() {
       didMount.current = true;
       return;
     }
-    const t = setTimeout(() => load(query.trim(), modeRef.current), 350);
+    const t = setTimeout(() => load(query.trim(), modeRef.current), 220);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, load]);
@@ -163,18 +183,24 @@ export default function CatalogScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
       <View style={styles.searchWrap}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={onSubmit}
-          returnKeyType="search"
-          placeholder={mode === 'device' ? 'Search device model, e.g. iPhone 13' : 'Search part name or SKU'}
-          placeholderTextColor={theme.textSecondary}
-          style={[
-            styles.input,
-            { color: theme.text, backgroundColor: theme.backgroundElement },
-          ]}
-        />
+        <View style={[styles.searchBox, { backgroundColor: theme.backgroundElement }]}>
+          <Ionicons name="search" size={18} color={theme.textSecondary} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            onSubmitEditing={onSubmit}
+            returnKeyType="search"
+            autoCorrect={false}
+            placeholder={mode === 'device' ? 'Search device model, e.g. iPhone 13' : 'Search part name or SKU'}
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.searchInput, { color: theme.text }]}
+          />
+          {query.length > 0 ? (
+            <Pressable onPress={() => setQuery('')} hitSlop={10}>
+              <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+            </Pressable>
+          ) : null}
+        </View>
         <View style={styles.segment}>
           {(['part', 'device'] as SearchMode[]).map((m) => {
             const selected = mode === m;
@@ -204,23 +230,23 @@ export default function CatalogScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chips}>
-          {[{ id: '', name_en: 'All' }, ...categories].map((c) => {
+          {[{ id: '', name_en: 'All' }, ...categories].map((c, i) => {
             const id = c.id || null;
             const selected = selectedCat === id;
             return (
-              <Pressable
-                key={c.id || 'all'}
-                onPress={() => setCategory(id)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: selected ? Brand.accent : theme.backgroundElement },
-                ]}>
-                <ThemedText
-                  type="small"
-                  style={{ color: selected ? '#fff' : theme.textSecondary }}>
-                  {c.name_en}
-                </ThemedText>
-              </Pressable>
+              <Animated.View key={c.id || 'all'} entering={FadeIn.duration(200).delay(Math.min(i, 10) * 30)}>
+                <PressableScale
+                  onPress={() => setCategory(id)}
+                  down={0.94}
+                  style={[
+                    styles.chip,
+                    { backgroundColor: selected ? Brand.accent : theme.backgroundElement },
+                  ]}>
+                  <ThemedText type="small" style={{ color: selected ? '#fff' : theme.textSecondary }}>
+                    {c.name_en}
+                  </ThemedText>
+                </PressableScale>
+              </Animated.View>
             );
           })}
         </ScrollView>
@@ -264,9 +290,11 @@ export default function CatalogScreen() {
           </Pressable>
         </Centered>
       ) : loading && products.length === 0 ? (
-        <Centered>
-          <ActivityIndicator />
-        </Centered>
+        <View style={styles.list}>
+          {Array.from({ length: 7 }).map((_, i) => (
+            <ProductSkeleton key={i} />
+          ))}
+        </View>
       ) : (
         <FlatList
           data={products}
@@ -305,7 +333,7 @@ export default function CatalogScreen() {
         <Animated.View
           entering={SlideInDown.springify().damping(18)}
           exiting={SlideOutDown.duration(180)}
-          style={styles.cartBarWrap}>
+          style={[styles.cartBarWrap, bumpStyle]}>
           <Pressable style={styles.cartBar} onPress={() => router.push('/cart')}>
             <ThemedText type="smallBold" style={{ color: '#fff' }}>
               View cart · {cart.count} item{cart.count === 1 ? '' : 's'}
@@ -415,6 +443,14 @@ function Centered({ children }: { children: React.ReactNode }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   searchWrap: { padding: Spacing.three, gap: Spacing.two },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.three,
+  },
+  searchInput: { flex: 1, paddingVertical: Spacing.three, fontSize: 16 },
   banner: {
     marginHorizontal: Spacing.three,
     marginBottom: Spacing.two,
