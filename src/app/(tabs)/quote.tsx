@@ -384,11 +384,12 @@ export default function QuoteScreen() {
                 ))}
               </View>
             ) : (
-              <View style={styles.centered}>
+              <Animated.View entering={FadeInDown.duration(260)} style={styles.centered}>
+                <Ionicons name="calculator-outline" size={48} color={theme.textSecondary} />
                 <ThemedText themeColor="textSecondary" style={{ textAlign: 'center' }}>
                   Search for a part to start a quote.
                 </ThemedText>
-              </View>
+              </Animated.View>
             )
           }
         />

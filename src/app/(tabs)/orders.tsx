@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Skeleton } from '@/components/skeleton';
@@ -63,8 +64,14 @@ export default function OrdersScreen() {
           data={orders}
           keyExtractor={(o) => o.id}
           contentContainerStyle={styles.list}
-          refreshing={loading}
-          onRefresh={load}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={load}
+              tintColor={Brand.accent}
+              colors={[Brand.accent]}
+            />
+          }
           renderItem={({ item, index }) => (
             <Animated.View
               entering={FadeInDown.duration(220).delay(Math.min(index, 12) * 40)}
@@ -95,14 +102,15 @@ export default function OrdersScreen() {
             </Animated.View>
           )}
           ListEmptyComponent={
-            <View style={styles.centered}>
+            <Animated.View entering={FadeIn.duration(260)} style={styles.centered}>
+              <Ionicons name="receipt-outline" size={48} color={theme.textSecondary} />
               <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
                 No orders yet
               </ThemedText>
               <ThemedText themeColor="textSecondary" style={{ textAlign: 'center' }}>
                 Orders you place through Parts Pro will show up here.
               </ThemedText>
-            </View>
+            </Animated.View>
           }
         />
       )}

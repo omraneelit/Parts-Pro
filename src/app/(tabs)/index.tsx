@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -323,23 +332,30 @@ export default function CatalogScreen() {
             />
           )}
           ListEmptyComponent={
-            <Centered>
+            <Animated.View entering={FadeIn.duration(260)} style={styles.centered}>
+              <Ionicons name="cube-outline" size={48} color={theme.textSecondary} />
               <ThemedText themeColor="textSecondary" style={styles.center}>
                 No parts found. Try a different search.
               </ThemedText>
-            </Centered>
+            </Animated.View>
           }
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footer}>
-                <ActivityIndicator />
+                <ActivityIndicator color={Brand.accent} />
               </View>
             ) : null
           }
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
-          refreshing={loading}
-          onRefresh={onSubmit}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={onSubmit}
+              tintColor={Brand.accent}
+              colors={[Brand.accent]}
+            />
+          }
         />
       )}
 

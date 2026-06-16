@@ -219,15 +219,15 @@ export default function AccountScreen() {
           )}
         </Animated.View>
 
-        <Pressable onPress={onRefresh} disabled={busy} style={[styles.btn, { backgroundColor: theme.backgroundElement }]}>
+        <PressableScale onPress={onRefresh} disabled={busy} style={[styles.btn, { backgroundColor: theme.backgroundElement }]}>
           <ThemedText type="smallBold">{busy ? 'Refreshing…' : 'Refresh status'}</ThemedText>
-        </Pressable>
+        </PressableScale>
 
-        <Pressable onPress={onLogout} style={[styles.btn, styles.logout]}>
+        <PressableScale onPress={onLogout} style={[styles.btn, styles.logout]}>
           <ThemedText type="smallBold" style={{ color: '#fff' }}>
             Log out
           </ThemedText>
-        </Pressable>
+        </PressableScale>
       </ScrollView>
     </SafeAreaView>
   );

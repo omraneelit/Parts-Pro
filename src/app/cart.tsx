@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -92,14 +93,15 @@ export default function CartScreen() {
           );
         }}
         ListEmptyComponent={
-          <View style={styles.empty}>
+          <Animated.View entering={FadeIn.duration(260)} style={styles.empty}>
+            <Ionicons name="cart-outline" size={52} color={theme.textSecondary} />
             <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
               Your cart is empty
             </ThemedText>
             <ThemedText themeColor="textSecondary" style={{ textAlign: 'center' }}>
               Add parts from the Catalog to start an order.
             </ThemedText>
-          </View>
+          </Animated.View>
         }
       />
 
