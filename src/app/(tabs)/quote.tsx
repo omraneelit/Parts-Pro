@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Animated, {
   FadeInDown,
+  FadeOut,
+  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -20,7 +22,7 @@ import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDate, formatMoney, regularWholesale } from '@/lib/format';
-import { notifySuccess } from '@/lib/haptics';
+import { notifySuccess, tapLight } from '@/lib/haptics';
 import { MARKUP_KEY, storageGet, storageSet } from '@/lib/storage';
 import type { Product, SavedQuote } from '@/lib/types';
 
@@ -106,6 +108,7 @@ export default function QuoteScreen() {
         /* network hiccup — don't block the user */
       }
     }
+    tapLight();
     setSelected(item);
   };
 
@@ -371,6 +374,8 @@ export default function QuoteScreen() {
                   <Animated.View
                     key={q.id}
                     entering={FadeInDown.duration(220).delay(Math.min(i, 10) * 40)}
+                    exiting={FadeOut.duration(180)}
+                    layout={LinearTransition.springify().damping(18)}
                     style={[styles.savedCard, { backgroundColor: theme.backgroundElement }]}>
                     <View style={{ flex: 1 }}>
                       <ThemedText type="smallBold" numberOfLines={1}>

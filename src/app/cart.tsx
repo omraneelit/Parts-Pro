@@ -1,8 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/pressable-scale';
@@ -14,7 +22,7 @@ import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
 import { formatMoney, regularWholesale } from '@/lib/format';
-import { notifyError, notifySuccess } from '@/lib/haptics';
+import { notifyError, notifySuccess, tapLight, tapSelection } from '@/lib/haptics';
 
 export default function CartScreen() {
   const theme = useTheme();
@@ -22,6 +30,22 @@ export default function CartScreen() {
   const { token } = useAuth();
   const { lines, total, count, setQty, remove, clear } = useCart();
   const [placing, setPlacing] = useState(false);
+
+  // Pop the total whenever it changes.
+  const totalScale = useSharedValue(1);
+  useEffect(() => {
+    totalScale.value = withSequence(withTiming(1.07, { duration: 110 }), withTiming(1, { duration: 130 }));
+  }, [total, totalScale]);
+  const totalStyle = useAnimatedStyle(() => ({ transform: [{ scale: totalScale.value }] }));
+
+  const changeQty = (productId: string, qty: number) => {
+    tapSelection();
+    setQty(productId, qty);
+  };
+  const removeLine = (productId: string) => {
+    tapLight();
+    remove(productId);
+  };
 
   const placeOrder = async () => {
     if (!token || lines.length === 0) return;
@@ -74,7 +98,7 @@ export default function CartScreen() {
               </View>
               <View style={styles.qtyRow}>
                 <Pressable
-                  onPress={() => setQty(item.product.id, item.qty - 1)}
+                  onPress={() => changeQty(item.product.id, item.qty - 1)}
                   style={[styles.qtyBtn, { backgroundColor: theme.background }]}>
                   <ThemedText type="smallBold">−</ThemedText>
                 </Pressable>
@@ -82,12 +106,12 @@ export default function CartScreen() {
                   {item.qty}
                 </ThemedText>
                 <Pressable
-                  onPress={() => setQty(item.product.id, item.qty + 1)}
+                  onPress={() => changeQty(item.product.id, item.qty + 1)}
                   style={[styles.qtyBtn, { backgroundColor: theme.background }]}>
                   <ThemedText type="smallBold">+</ThemedText>
                 </Pressable>
               </View>
-              <Pressable onPress={() => remove(item.product.id)} style={styles.removeBtn} hitSlop={6}>
+              <Pressable onPress={() => removeLine(item.product.id)} style={styles.removeBtn} hitSlop={6}>
                 <ThemedText type="small" style={{ color: Brand.danger }}>
                   Remove
                 </ThemedText>
@@ -112,9 +136,11 @@ export default function CartScreen() {
         <View style={[styles.footer, { borderTopColor: theme.backgroundElement }]}>
           <View style={styles.totalRow}>
             <ThemedText type="smallBold">Total</ThemedText>
-            <ThemedText type="subtitle" style={{ color: Brand.success }}>
-              {formatMoney(total)}
-            </ThemedText>
+            <Animated.View style={totalStyle}>
+              <ThemedText type="subtitle" style={{ color: Brand.success }}>
+                {formatMoney(total)}
+              </ThemedText>
+            </Animated.View>
           </View>
           <ThemedText type="small" themeColor="textSecondary">
             Final pricing is confirmed by the seller. Order is placed as pending.
