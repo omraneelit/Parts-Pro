@@ -5,6 +5,15 @@ _Last updated: 2026-06-18_
 > **Branch policy:** `master` is the single canonical branch — always commit/push
 > there, never feature branches.
 
+### Session update (2026-06-18) — manual-payment sheet
+- **Upgrade / Renew no longer calls Stripe** (which 500'd "Internal server error"
+  with no processor configured). It now opens a **manual-payment sheet**
+  (`src/components/payment-methods.tsx`) showing the admin-editable **Whish / OMT /
+  BOB** numbers plus a **Contact developer** (WhatsApp→tel) action, all fetched
+  from `/partspro/settings` (`whishNumber/omtNumber/bobNumber/developerContact`).
+  Numbers are blank until set from the **Control App**; methods with no number are
+  hidden. Hub backend **deployed**; app side is a JS reload.
+
 ### Session update (2026-06-18)
 - Re-registered under the **elhagmeos-organization** Expo account (new projectId
   `ff86276f-…`); old `omrano12` project abandoned.
