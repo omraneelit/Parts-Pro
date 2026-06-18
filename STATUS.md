@@ -1,6 +1,22 @@
 # Parts Pro — Project Status
 
-_Last updated: 2026-06-17_
+_Last updated: 2026-06-18_
+
+> **Branch policy:** `master` is the single canonical branch — always commit/push
+> there, never feature branches.
+
+### Session update (2026-06-18)
+- Re-registered under the **elhagmeos-organization** Expo account (new projectId
+  `ff86276f-…`); old `omrano12` project abandoned.
+- **Offline catalog cache** (`lib/catalog-cache.ts`, AsyncStorage) for the default
+  browse, with an offline banner (en/ar) — survives a dropped connection in the field.
+- **Push deep-linking** — tapped notifications (renewal / order / back-in-stock)
+  route to the right screen instead of just opening the app.
+- **Animation polish** — active tab icon springs on focus; catalog thumbnails fade
+  in (expo-image transition).
+- Confirmed the free-tier quote limit is server-enforced and the quote-limit upsell
+  already exists.
+- Pending: `eas build` to bundle the new native module (AsyncStorage) + push/scan/PDF.
 
 A paid subscription mobile app for wholesale repair-shop customers ("Pro members").
 It is a thin client over the **existing shared backend** that the HMA store and
