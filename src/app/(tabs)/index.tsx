@@ -521,7 +521,13 @@ function ProductRow({
       entering={FadeInDown.duration(220).delay(Math.min(index, 12) * 35)}
       style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
       {product.image ? (
-        <Image source={{ uri: product.image }} style={styles.thumb} />
+        <Image
+          source={{ uri: product.image }}
+          style={styles.thumb}
+          transition={250}
+          recyclingKey={product.id}
+          contentFit="cover"
+        />
       ) : (
         <View style={[styles.thumb, { backgroundColor: theme.backgroundSelected }]} />
       )}

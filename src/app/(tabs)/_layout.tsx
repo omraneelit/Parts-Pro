@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
+import { AnimatedTabIcon } from '@/components/animated-tab-icon';
 import { Brand } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/lib/i18n';
@@ -23,43 +23,35 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: t('tab_catalog'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} />,
+          tabBarIcon: (p) => <AnimatedTabIcon name="search" {...p} />,
         }}
       />
       <Tabs.Screen
         name="catalog"
         options={{
           title: t('tab_pricelist'),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="pricetags-outline" color={color} size={size} />
-          ),
+          tabBarIcon: (p) => <AnimatedTabIcon name="pricetags-outline" {...p} />,
         }}
       />
       <Tabs.Screen
         name="quote"
         options={{
           title: t('tab_quote'),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calculator-outline" color={color} size={size} />
-          ),
+          tabBarIcon: (p) => <AnimatedTabIcon name="calculator-outline" {...p} />,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
           title: t('tab_orders'),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="receipt-outline" color={color} size={size} />
-          ),
+          tabBarIcon: (p) => <AnimatedTabIcon name="receipt-outline" {...p} />,
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: t('tab_account'),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle-outline" color={color} size={size} />
-          ),
+          tabBarIcon: (p) => <AnimatedTabIcon name="person-circle-outline" {...p} />,
         }}
       />
     </Tabs>
