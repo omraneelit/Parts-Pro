@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PaymentMethodsModal, type PaymentInfo } from '@/components/payment-methods';
 import { PressableScale } from '@/components/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
@@ -43,13 +43,23 @@ export default function AccountScreen() {
     trial: t('acc_tier_trial'),
     free: t('acc_tier_free'),
   };
-  // Live plan prices (admin-editable in the Control App); falls back to the
-  // backend defaults until the settings call resolves.
+  // Live plan prices + manual-payment numbers (admin-editable in the Control
+  // App); falls back to the backend defaults until the settings call resolves.
   const [prices, setPrices] = useState(DEFAULT_PRICES);
+  const [payInfo, setPayInfo] = useState<PaymentInfo>({});
+  const [payOpen, setPayOpen] = useState(false);
   useEffect(() => {
     api
       .getSettings()
-      .then((s) => setPrices({ monthly: s.monthlyPrice, annual: s.annualPrice }))
+      .then((s) => {
+        setPrices({ monthly: s.monthlyPrice, annual: s.annualPrice });
+        setPayInfo({
+          whishNumber: s.whishNumber,
+          omtNumber: s.omtNumber,
+          bobNumber: s.bobNumber,
+          developerContact: s.developerContact,
+        });
+      })
       .catch(() => {});
   }, []);
 
@@ -124,37 +134,13 @@ export default function AccountScreen() {
     }
   };
 
-  // Renew: use self-serve Stripe checkout when the backend has billing enabled,
-  // otherwise fall back to a manual-payment prompt.
-  const renew = async () => {
-    if (!token) return;
-    let enabled = false;
-    try {
-      enabled = (await api.getBillingStatus()).enabled;
-    } catch {
-      enabled = false;
-    }
-    if (!enabled) {
-      Alert.alert(t('acc_renew_title'), t('acc_renew_manual'));
-      return;
-    }
-    Alert.alert(t('acc_choose_plan'), undefined, [
-      { text: t('cancel'), style: 'cancel' },
-      { text: t('acc_plan_monthly_opt', { price: fmtPrice(prices.monthly) }), onPress: () => void checkout('monthly') },
-      { text: t('acc_plan_annual_opt', { price: fmtPrice(prices.annual) }), onPress: () => void checkout('annual') },
-    ]);
-  };
+  // Upgrade / Renew: there is no card processor wired up, so we open the
+  // manual-payment sheet (Whish / OMT / BOB numbers + developer contact) instead
+  // of hitting a checkout endpoint that 500s. Numbers come from /partspro/settings.
+  const renew = () => setPayOpen(true);
 
-  const checkout = async (plan: 'monthly' | 'annual') => {
-    if (!token) return;
-    try {
-      const { url } = await api.startCheckout(token, plan);
-      if (url) await WebBrowser.openBrowserAsync(url);
-      await refresh();
-    } catch (e) {
-      Alert.alert(t('error'), e instanceof ApiError ? e.message : t('acc_checkout_err'));
-    }
-  };
+  // Both plan prices on one localized line for the payment sheet header.
+  const planLine = `${t('acc_plan_monthly_opt', { price: fmtPrice(prices.monthly) })} · ${t('acc_plan_annual_opt', { price: fmtPrice(prices.annual) })}`;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['bottom']}>
@@ -189,6 +175,11 @@ export default function AccountScreen() {
           {tier === 'free' ? (
             <ThemedText type="small" themeColor="textSecondary">
               {t('acc_free_blurb')}
+            </ThemedText>
+          ) : null}
+          {tier !== 'pro' ? (
+            <ThemedText type="small" style={{ color: highlight ? Brand.successText : theme.textSecondary }}>
+              {t('acc_plan_monthly', { price: fmtPrice(prices.monthly) })} · {t('acc_plan_annual', { price: fmtPrice(prices.annual) })}
             </ThemedText>
           ) : null}
           <PressableScale onPress={renew} style={styles.renewBtn}>
@@ -341,6 +332,13 @@ export default function AccountScreen() {
           </ThemedText>
         </PressableScale>
       </ScrollView>
+
+      <PaymentMethodsModal
+        visible={payOpen}
+        onClose={() => setPayOpen(false)}
+        info={payInfo}
+        planLine={planLine}
+      />
     </SafeAreaView>
   );
 }

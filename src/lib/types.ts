@@ -54,6 +54,12 @@ export interface PartsProSettings {
   // account screen's renew/upgrade prompts.
   monthlyPrice: number;
   annualPrice: number;
+  // Manual-payment numbers shown in the Upgrade / Renew sheet (admin-editable
+  // from the Control App). Blank means that method is hidden.
+  whishNumber?: string;
+  omtNumber?: string;
+  bobNumber?: string;
+  developerContact?: string;
 }
 
 export interface QuoteUsage {

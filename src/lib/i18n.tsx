@@ -254,6 +254,20 @@ const STRINGS: Record<string, Entry> = {
   acc_plan_monthly_opt: { en: 'Monthly (${price})', ar: 'شهري ({price}$)' },
   acc_plan_annual_opt: { en: 'Annual (${price})', ar: 'سنوي ({price}$)' },
   acc_checkout_err: { en: 'Could not start checkout', ar: 'تعذّر بدء عملية الدفع' },
+
+  // Account — manual payment sheet (Whish / OMT / BOB + developer contact)
+  acc_pay_title: { en: 'Pay & activate Pro', ar: 'ادفع وفعّل Pro' },
+  acc_pay_sub: {
+    en: 'Send your payment to one of the numbers below, then we activate your Pro membership.',
+    ar: 'أرسل دفعتك إلى أحد الأرقام أدناه، ثم نقوم بتفعيل عضويتك Pro.',
+  },
+  acc_pay_call: { en: 'Call', ar: 'اتصل' },
+  acc_pay_dev: { en: 'Contact developer', ar: 'تواصل مع المطوّر' },
+  acc_pay_close: { en: 'Close', ar: 'إغلاق' },
+  acc_pay_none: {
+    en: 'No payment numbers are set up yet. Please contact the developer to subscribe.',
+    ar: 'لم يتم إعداد أرقام الدفع بعد. يرجى التواصل مع المطوّر للاشتراك.',
+  },
 };
 
 export function strFor(key: string, lang: Lang): string {
