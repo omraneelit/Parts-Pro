@@ -18,7 +18,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.omrano12.PartsPro"
+      "package": "com.omrano12.PartsPro",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -38,7 +42,15 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-sharing",
+      "expo-notifications",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Parts Pro uses the camera to scan part barcodes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -47,8 +59,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "f172aff8-01d1-418f-a100-31eb88d65df3"
+        "projectId": "ff86276f-e886-41f7-ab22-f8dd4145ce66"
       }
-    }
+    },
+    "owner": "elhagmeos-organization"
   }
 }

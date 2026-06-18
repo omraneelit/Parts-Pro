@@ -50,6 +50,10 @@ export interface PartsProSettings {
   proDiscountPercent: number;
   trialLengthDays: number;
   freeTierDailyQuoteLimit: number;
+  // Plan prices (USD) — admin-editable from the Control App, surfaced on the
+  // account screen's renew/upgrade prompts.
+  monthlyPrice: number;
+  annualPrice: number;
 }
 
 export interface QuoteUsage {

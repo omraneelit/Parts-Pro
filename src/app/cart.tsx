@@ -21,6 +21,7 @@ import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
+import { useI18n } from '@/lib/i18n';
 import { formatMoney, regularWholesale } from '@/lib/format';
 import { notifyError, notifySuccess, tapLight, tapSelection } from '@/lib/haptics';
 
@@ -28,6 +29,7 @@ export default function CartScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { token } = useAuth();
+  const { t } = useI18n();
   const { lines, total, count, setQty, remove, clear } = useCart();
   const [placing, setPlacing] = useState(false);
 
@@ -57,9 +59,9 @@ export default function CartScreen() {
       );
       clear();
       notifySuccess();
-      Alert.alert('Order placed', 'Your order was sent. Track it on the Orders tab.', [
+      Alert.alert(t('cart_placed_title'), t('cart_placed_msg'), [
         {
-          text: 'OK',
+          text: t('ok'),
           onPress: () => {
             router.back();
             router.push('/orders');
@@ -68,7 +70,7 @@ export default function CartScreen() {
       ]);
     } catch (e) {
       notifyError();
-      Alert.alert('Could not place order', e instanceof ApiError ? e.message : 'Please try again.');
+      Alert.alert(t('cart_place_err'), e instanceof ApiError ? e.message : t('try_again'));
     } finally {
       setPlacing(false);
     }
@@ -93,7 +95,7 @@ export default function CartScreen() {
                   {item.product.name_en}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {formatMoney(unit)} each
+                  {t('cart_each', { price: formatMoney(unit) })}
                 </ThemedText>
               </View>
               <View style={styles.qtyRow}>
@@ -113,7 +115,7 @@ export default function CartScreen() {
               </View>
               <Pressable onPress={() => removeLine(item.product.id)} style={styles.removeBtn} hitSlop={6}>
                 <ThemedText type="small" style={{ color: Brand.danger }}>
-                  Remove
+                  {t('cart_remove')}
                 </ThemedText>
               </Pressable>
             </Animated.View>
@@ -123,10 +125,10 @@ export default function CartScreen() {
           <Animated.View entering={FadeIn.duration(260)} style={styles.empty}>
             <Ionicons name="cart-outline" size={52} color={theme.textSecondary} />
             <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
-              Your cart is empty
+              {t('cart_empty_title')}
             </ThemedText>
             <ThemedText themeColor="textSecondary" style={{ textAlign: 'center' }}>
-              Add parts from the Catalog to start an order.
+              {t('cart_empty_sub')}
             </ThemedText>
           </Animated.View>
         }
@@ -135,7 +137,7 @@ export default function CartScreen() {
       {count > 0 ? (
         <View style={[styles.footer, { borderTopColor: theme.backgroundElement }]}>
           <View style={styles.totalRow}>
-            <ThemedText type="smallBold">Total</ThemedText>
+            <ThemedText type="smallBold">{t('cart_total')}</ThemedText>
             <Animated.View style={totalStyle}>
               <ThemedText type="subtitle" style={{ color: Brand.success }}>
                 {formatMoney(total)}
@@ -143,14 +145,14 @@ export default function CartScreen() {
             </Animated.View>
           </View>
           <ThemedText type="small" themeColor="textSecondary">
-            Final pricing is confirmed by the seller. Order is placed as pending.
+            {t('cart_disclaimer')}
           </ThemedText>
           <PressableScale
             onPress={placeOrder}
             disabled={placing}
             style={[styles.placeBtn, placing && { opacity: 0.6 }]}>
             <ThemedText type="smallBold" style={{ color: '#fff' }}>
-              {placing ? 'Placing…' : 'Place order'}
+              {placing ? t('cart_placing') : t('cart_place')}
             </ThemedText>
           </PressableScale>
         </View>

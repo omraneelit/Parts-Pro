@@ -3,9 +3,11 @@ import { Tabs } from 'expo-router';
 
 import { Brand } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useI18n } from '@/lib/i18n';
 
 export default function TabsLayout() {
   const theme = useTheme();
+  const { t } = useI18n();
 
   return (
     <Tabs
@@ -20,14 +22,23 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Catalog',
+          title: t('tab_catalog'),
           tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="catalog"
+        options={{
+          title: t('tab_pricelist'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="pricetags-outline" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="quote"
         options={{
-          title: 'Quote',
+          title: t('tab_quote'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calculator-outline" color={color} size={size} />
           ),
@@ -36,7 +47,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: 'Orders',
+          title: t('tab_orders'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="receipt-outline" color={color} size={size} />
           ),
@@ -45,7 +56,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="account"
         options={{
-          title: 'Account',
+          title: t('tab_account'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-circle-outline" color={color} size={size} />
           ),

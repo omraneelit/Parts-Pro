@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -11,45 +11,90 @@ import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useI18n, type Lang } from '@/lib/i18n';
+import { useThemeMode, type ThemePref } from '@/lib/theme-mode';
 import { formatDate } from '@/lib/format';
-
-const PLAN_LABEL: Record<string, string> = {
-  monthly: 'Monthly — $8/mo',
-  annual: 'Annual — $80/yr',
-};
-
-const TIER_LABEL: Record<string, string> = {
-  pro: 'Pro — Active',
-  trial: 'Free trial',
-  free: 'Free plan',
-};
 
 function daysUntil(iso?: string | null): number | null {
   if (!iso) return null;
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
 }
 
+// Whole numbers show bare ($8); fractional prices keep two decimals ($7.50).
+const fmtPrice = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+
+// Fallbacks match the backend defaults until /partspro/settings loads.
+const DEFAULT_PRICES = { monthly: 8, annual: 80 };
+
 export default function AccountScreen() {
   const theme = useTheme();
   const { token, subscriber, isActive, tier, logout, refresh } = useAuth();
+  const { t, lang, setLang } = useI18n();
+  const { preference, setPreference } = useThemeMode();
+
+  const THEME_OPTS: { key: ThemePref; label: string }[] = [
+    { key: 'system', label: t('acc_theme_system') },
+    { key: 'light', label: t('acc_theme_light') },
+    { key: 'dark', label: t('acc_theme_dark') },
+  ];
+
+  const TIER_LABEL: Record<string, string> = {
+    pro: t('acc_tier_pro'),
+    trial: t('acc_tier_trial'),
+    free: t('acc_tier_free'),
+  };
+  // Live plan prices (admin-editable in the Control App); falls back to the
+  // backend defaults until the settings call resolves.
+  const [prices, setPrices] = useState(DEFAULT_PRICES);
+  useEffect(() => {
+    api
+      .getSettings()
+      .then((s) => setPrices({ monthly: s.monthlyPrice, annual: s.annualPrice }))
+      .catch(() => {});
+  }, []);
+
+  const PLAN_LABEL: Record<string, string> = {
+    monthly: t('acc_plan_monthly', { price: fmtPrice(prices.monthly) }),
+    annual: t('acc_plan_annual', { price: fmtPrice(prices.annual) }),
+  };
 
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(subscriber?.name ?? '');
   const [phone, setPhone] = useState(subscriber?.phone ?? '');
   const [saving, setSaving] = useState(false);
+  const [code, setCode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+
+  const redeemGift = async () => {
+    if (!token || !code.trim()) return;
+    setRedeeming(true);
+    try {
+      const res = await api.redeemCode(token, code.trim());
+      await refresh();
+      setCode('');
+      const lines: string[] = [];
+      if (res.vip_days > 0) lines.push(t('acc_redeem_days', { n: res.vip_days }));
+      if (res.discount_percent > 0) lines.push(t('acc_redeem_disc', { n: res.discount_percent }));
+      Alert.alert(t('acc_redeem_ok_title'), lines.join('\n'));
+    } catch (e) {
+      Alert.alert(t('error'), e instanceof ApiError ? e.message : t('acc_redeem_err'));
+    } finally {
+      setRedeeming(false);
+    }
+  };
 
   // Days until Pro lapses (renewal nudge) or the trial ends.
   const daysLeft = isActive ? daysUntil(subscriber?.expiry_date) : null;
   const expiringSoon = daysLeft !== null && daysLeft <= 7;
   const trialDaysLeft = tier === 'trial' ? daysUntil(subscriber?.trial_ends_at) : null;
-  const renewLabel = tier === 'pro' ? 'Renew / extend' : 'Upgrade to Pro';
+  const renewLabel = tier === 'pro' ? t('acc_renew') : t('acc_upgrade');
   const highlight = tier === 'pro' || tier === 'trial';
 
   const onLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: () => void logout() },
+    Alert.alert(t('acc_logout'), t('acc_logout_confirm'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('acc_logout'), style: 'destructive', onPress: () => void logout() },
     ]);
   };
 
@@ -73,7 +118,7 @@ export default function AccountScreen() {
       await refresh();
       setEditing(false);
     } catch (e) {
-      Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not save profile');
+      Alert.alert(t('error'), e instanceof ApiError ? e.message : t('acc_save_err'));
     } finally {
       setSaving(false);
     }
@@ -90,16 +135,13 @@ export default function AccountScreen() {
       enabled = false;
     }
     if (!enabled) {
-      Alert.alert(
-        'Renew membership',
-        'Contact us to activate or renew your Parts Pro membership (cash or manual payment).',
-      );
+      Alert.alert(t('acc_renew_title'), t('acc_renew_manual'));
       return;
     }
-    Alert.alert('Choose a plan', undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Monthly ($8)', onPress: () => void checkout('monthly') },
-      { text: 'Annual ($80)', onPress: () => void checkout('annual') },
+    Alert.alert(t('acc_choose_plan'), undefined, [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('acc_plan_monthly_opt', { price: fmtPrice(prices.monthly) }), onPress: () => void checkout('monthly') },
+      { text: t('acc_plan_annual_opt', { price: fmtPrice(prices.annual) }), onPress: () => void checkout('annual') },
     ]);
   };
 
@@ -110,7 +152,7 @@ export default function AccountScreen() {
       if (url) await WebBrowser.openBrowserAsync(url);
       await refresh();
     } catch (e) {
-      Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not start checkout');
+      Alert.alert(t('error'), e instanceof ApiError ? e.message : t('acc_checkout_err'));
     }
   };
 
@@ -121,36 +163,32 @@ export default function AccountScreen() {
           entering={FadeInDown.duration(240)}
           style={[styles.statusCard, { backgroundColor: highlight ? Brand.successBg : theme.backgroundElement }]}>
           <ThemedText type="small" style={{ color: highlight ? Brand.successText : theme.textSecondary }}>
-            PLAN
+            {t('acc_plan')}
           </ThemedText>
           <ThemedText type="subtitle" style={{ color: highlight ? Brand.successText : theme.text }}>
-            {TIER_LABEL[tier] ?? 'Free plan'}
+            {TIER_LABEL[tier] ?? t('acc_tier_free')}
           </ThemedText>
           {tier === 'pro' && subscriber?.plan ? (
             <ThemedText themeColor="textSecondary">{PLAN_LABEL[subscriber.plan] ?? subscriber.plan}</ThemedText>
           ) : null}
           {tier === 'pro' && subscriber?.expiry_date ? (
             <ThemedText themeColor="textSecondary">
-              Renews / expires {formatDate(subscriber.expiry_date)}
+              {t('acc_renews_expires', { date: formatDate(subscriber.expiry_date) })}
             </ThemedText>
           ) : null}
           {expiringSoon ? (
             <ThemedText type="smallBold" style={{ color: Brand.danger }}>
-              {daysLeft && daysLeft > 0
-                ? `Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — renew to keep member pricing.`
-                : 'Expires today — renew to keep member pricing.'}
+              {daysLeft && daysLeft > 0 ? t('acc_expires_in', { n: daysLeft }) : t('acc_expires_today')}
             </ThemedText>
           ) : null}
           {tier === 'trial' ? (
             <ThemedText type="smallBold" style={{ color: Brand.successText }}>
-              {trialDaysLeft && trialDaysLeft > 0
-                ? `${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left of full Pro access`
-                : 'Last day of your trial'}
+              {trialDaysLeft && trialDaysLeft > 0 ? t('acc_trial_left', { n: trialDaysLeft }) : t('acc_trial_last')}
             </ThemedText>
           ) : null}
           {tier === 'free' ? (
             <ThemedText type="small" themeColor="textSecondary">
-              Upgrade to Pro for member pricing, unlimited quotes, and saved settings.
+              {t('acc_free_blurb')}
             </ThemedText>
           ) : null}
           <PressableScale onPress={renew} style={styles.renewBtn}>
@@ -161,16 +199,41 @@ export default function AccountScreen() {
         </Animated.View>
 
         <Animated.View
+          entering={FadeInDown.duration(240).delay(60)}
+          style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+          <ThemedText type="small" themeColor="textSecondary">
+            {t('acc_redeem_title')}
+          </ThemedText>
+          <TextInput
+            value={code}
+            onChangeText={setCode}
+            placeholder={t('acc_redeem_ph')}
+            placeholderTextColor={theme.textSecondary}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
+          />
+          <PressableScale
+            onPress={redeemGift}
+            disabled={redeeming || !code.trim()}
+            style={[styles.renewBtn, (redeeming || !code.trim()) && { opacity: 0.6 }]}>
+            <ThemedText type="smallBold" style={{ color: '#fff' }}>
+              {redeeming ? t('acc_redeem_busy') : t('acc_redeem_btn')}
+            </ThemedText>
+          </PressableScale>
+        </Animated.View>
+
+        <Animated.View
           entering={FadeInDown.duration(240).delay(80)}
           style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
           <View style={styles.cardHeader}>
             <ThemedText type="small" themeColor="textSecondary">
-              PROFILE
+              {t('acc_profile')}
             </ThemedText>
             {!editing ? (
               <Pressable onPress={startEdit}>
                 <ThemedText type="smallBold" style={{ color: Brand.accent }}>
-                  Edit
+                  {t('acc_edit')}
                 </ThemedText>
               </Pressable>
             ) : null}
@@ -181,51 +244,100 @@ export default function AccountScreen() {
               <TextInput
                 value={name}
                 onChangeText={setName}
-                placeholder="Full name"
+                placeholder={t('acc_ph_name')}
                 placeholderTextColor={theme.textSecondary}
                 style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
               />
               <TextInput
                 value={phone}
                 onChangeText={setPhone}
-                placeholder="Phone"
+                placeholder={t('acc_ph_phone')}
                 placeholderTextColor={theme.textSecondary}
                 keyboardType="phone-pad"
                 style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
               />
               <View style={styles.editActions}>
                 <Pressable onPress={() => setEditing(false)} style={[styles.smallBtn, { backgroundColor: theme.background }]}>
-                  <ThemedText type="smallBold">Cancel</ThemedText>
+                  <ThemedText type="smallBold">{t('cancel')}</ThemedText>
                 </Pressable>
                 <Pressable
                   onPress={saveProfile}
                   disabled={saving}
                   style={[styles.smallBtn, { backgroundColor: Brand.accent }, saving && { opacity: 0.6 }]}>
                   <ThemedText type="smallBold" style={{ color: '#fff' }}>
-                    {saving ? 'Saving…' : 'Save'}
+                    {saving ? t('acc_saving') : t('save')}
                   </ThemedText>
                 </Pressable>
               </View>
             </>
           ) : (
             <>
-              <Field label="Name" value={subscriber?.name} />
-              <Field label="Email" value={subscriber?.email} />
-              <Field label="Phone" value={subscriber?.phone ?? '—'} />
+              <Field label={t('acc_field_name')} value={subscriber?.name} />
+              <Field label={t('acc_field_email')} value={subscriber?.email} />
+              <Field label={t('acc_field_phone')} value={subscriber?.phone ?? '—'} />
               {subscriber?.start_date ? (
-                <Field label="Member since" value={formatDate(subscriber.start_date)} />
+                <Field label={t('acc_field_since')} value={formatDate(subscriber.start_date)} />
               ) : null}
             </>
           )}
         </Animated.View>
 
+        <Animated.View
+          entering={FadeInDown.duration(240).delay(140)}
+          style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+          <ThemedText type="small" themeColor="textSecondary">
+            {t('acc_appearance')}
+          </ThemedText>
+          <View style={styles.langRow}>
+            {THEME_OPTS.map((opt) => {
+              const sel = preference === opt.key;
+              return (
+                <Pressable
+                  key={opt.key}
+                  onPress={() => setPreference(opt.key)}
+                  style={[styles.langBtn, { backgroundColor: sel ? Brand.accent : theme.background }]}>
+                  <ThemedText type="smallBold" style={{ color: sel ? '#fff' : theme.text }}>
+                    {opt.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.duration(240).delay(180)}
+          style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+          <ThemedText type="small" themeColor="textSecondary">
+            {t('acc_language')}
+          </ThemedText>
+          <View style={styles.langRow}>
+            {(['en', 'ar'] as Lang[]).map((l) => {
+              const sel = lang === l;
+              return (
+                <Pressable
+                  key={l}
+                  onPress={() => setLang(l)}
+                  style={[
+                    styles.langBtn,
+                    { backgroundColor: sel ? Brand.accent : theme.background },
+                  ]}>
+                  <ThemedText type="smallBold" style={{ color: sel ? '#fff' : theme.text }}>
+                    {l === 'en' ? t('acc_lang_en') : t('acc_lang_ar')}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Animated.View>
+
         <PressableScale onPress={onRefresh} disabled={busy} style={[styles.btn, { backgroundColor: theme.backgroundElement }]}>
-          <ThemedText type="smallBold">{busy ? 'Refreshing…' : 'Refresh status'}</ThemedText>
+          <ThemedText type="smallBold">{busy ? t('acc_refreshing') : t('acc_refresh')}</ThemedText>
         </PressableScale>
 
         <PressableScale onPress={onLogout} style={[styles.btn, styles.logout]}>
           <ThemedText type="smallBold" style={{ color: '#fff' }}>
-            Log out
+            {t('acc_logout')}
           </ThemedText>
         </PressableScale>
       </ScrollView>
@@ -266,4 +378,6 @@ const styles = StyleSheet.create({
   smallBtn: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.two, borderRadius: Spacing.two },
   btn: { padding: Spacing.three, borderRadius: Spacing.three, alignItems: 'center' },
   logout: { backgroundColor: Brand.danger },
+  langRow: { flexDirection: 'row', gap: Spacing.two },
+  langBtn: { flex: 1, paddingVertical: Spacing.three, borderRadius: Spacing.two, alignItems: 'center' },
 });

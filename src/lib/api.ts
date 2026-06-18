@@ -151,6 +151,51 @@ export function getCategories() {
   return request<Category[]>('/categories');
 }
 
+// ---- Price List Maker (per-subscriber markup / rounding / overrides) ----
+export interface PriceListConfig {
+  markup_percent: number;
+  round: string;
+  overrides: Record<string, number>;
+}
+
+export function getPriceList(token: string) {
+  return request<PriceListConfig>('/partspro/pricelist', { token });
+}
+
+export function savePriceList(token: string, cfg: Partial<PriceListConfig>) {
+  return request<PriceListConfig>('/partspro/pricelist', { method: 'PUT', body: cfg, token });
+}
+
+// ---- Favorites (saved parts) ----
+export function getFavorites(token: string) {
+  return request<Product[]>('/partspro/favorites', { token });
+}
+
+export function addFavorite(token: string, productId: string) {
+  return request<{ ok: boolean }>(`/partspro/favorites/${productId}`, { method: 'POST', token });
+}
+
+export function removeFavorite(token: string, productId: string) {
+  return request<{ ok: boolean }>(`/partspro/favorites/${productId}`, { method: 'DELETE', token });
+}
+
+// ---- Push notifications ----
+export function savePushToken(token: string, pushToken: string | null) {
+  return request<{ ok: boolean }>('/partspro/push-token', {
+    method: 'POST',
+    body: { push_token: pushToken },
+    token,
+  });
+}
+
+// ---- Stock alerts (notify me when back in stock) ----
+export function notifyWhenInStock(token: string, productId: string) {
+  return request<{ ok: boolean }>(`/partspro/products/${productId}/notify-me`, {
+    method: 'POST',
+    token,
+  });
+}
+
 // ---- Orders ----
 export function getOrders(token: string) {
   return request<Order[]>('/partspro/orders', { token });
@@ -186,6 +231,22 @@ export function deleteQuote(token: string, id: string) {
 // Free-tier daily quote limiter (trial/pro always allowed).
 export function quoteUsage(token: string) {
   return request<QuoteUsage>('/partspro/quote-usage', { method: 'POST', token });
+}
+
+// ---- Gift / VIP codes ----
+export interface RedeemResult {
+  ok: boolean;
+  vip_days: number;
+  discount_percent: number;
+  subscriber: Subscriber;
+}
+
+export function redeemCode(token: string, code: string) {
+  return request<RedeemResult>('/partspro/redeem', {
+    method: 'POST',
+    body: { code },
+    token,
+  });
 }
 
 // ---- Self-serve billing (Stripe; disabled until configured server-side) ----

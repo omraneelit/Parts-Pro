@@ -1,15 +1,20 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 
 import { AnimatedSplash } from '@/components/animated-splash';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { CartProvider } from '@/lib/cart';
+import { FavoritesProvider } from '@/lib/favorites';
+import { LanguageProvider, useI18n } from '@/lib/i18n';
+import { ThemeModeProvider, useThemeMode } from '@/lib/theme-mode';
+import { addNotificationResponseHandler, registerForPush } from '@/lib/push';
 
 function RootNavigator() {
   const { token, loading } = useAuth();
+  const { t } = useI18n();
   const segments = useSegments();
   const router = useRouter();
 
@@ -25,6 +30,19 @@ function RootNavigator() {
     }
   }, [token, loading, segments, router]);
 
+  // Register this device for push once the subscriber is signed in (best-effort;
+  // no-ops in Expo Go / before the native module is bundled via eas build).
+  useEffect(() => {
+    if (token) void registerForPush(token);
+  }, [token]);
+
+  // Route a tapped notification (renewal reminder, order update, back-in-stock)
+  // to the screen named in its payload. No-ops without the native module.
+  useEffect(() => {
+    if (!token) return;
+    return addNotificationResponseHandler((path) => router.push(path as never));
+  }, [token, router]);
+
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -37,23 +55,37 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" />
-      <Stack.Screen name="cart" options={{ headerShown: true, title: 'Cart', presentation: 'modal' }} />
+      <Stack.Screen name="cart" options={{ headerShown: true, title: t('cart_title'), presentation: 'modal' }} />
     </Stack>
   );
 }
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+// Inside ThemeModeProvider so the navigation theme + status bar follow the
+// user's resolved colour scheme (System / Light / Dark).
+function ThemedRoot() {
+  const { scheme } = useThemeMode();
   const [splashDone, setSplashDone] = useState(false);
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider>
-        <CartProvider>
-          <RootNavigator />
-          <StatusBar style="auto" />
-          {!splashDone ? <AnimatedSplash onFinish={() => setSplashDone(true)} /> : null}
-        </CartProvider>
-      </AuthProvider>
+    <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <RootNavigator />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      {!splashDone ? <AnimatedSplash onFinish={() => setSplashDone(true)} /> : null}
     </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeModeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <FavoritesProvider>
+            <CartProvider>
+              <ThemedRoot />
+            </CartProvider>
+          </FavoritesProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeModeProvider>
   );
 }

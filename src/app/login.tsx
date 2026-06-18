@@ -20,27 +20,28 @@ import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useI18n } from '@/lib/i18n';
 import { notifyError, notifySuccess } from '@/lib/haptics';
 
 type Mode = 'login' | 'register' | 'forgot' | 'reset';
 
-const SUBTITLE: Record<Mode, string> = {
-  login: 'Sign in to your member account',
-  register: 'Create your member account',
-  forgot: 'Reset your password',
-  reset: 'Enter the code we emailed you',
-};
-
-const CTA: Record<Mode, string> = {
-  login: 'Sign in',
-  register: 'Create account',
-  forgot: 'Send reset code',
-  reset: 'Reset password',
-};
-
 export default function LoginScreen() {
   const theme = useTheme();
   const { login, register, resetPassword } = useAuth();
+  const { t } = useI18n();
+
+  const SUBTITLE: Record<Mode, string> = {
+    login: t('lg_sub_login'),
+    register: t('lg_sub_register'),
+    forgot: t('lg_sub_forgot'),
+    reset: t('lg_sub_reset'),
+  };
+  const CTA: Record<Mode, string> = {
+    login: t('lg_cta_login'),
+    register: t('lg_cta_register'),
+    forgot: t('lg_cta_forgot'),
+    reset: t('lg_cta_reset'),
+  };
 
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
@@ -79,7 +80,7 @@ export default function LoginScreen() {
       // Successful auth navigations are handled by the root layout's gate.
     } catch (e) {
       notifyError();
-      setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
+      setError(e instanceof ApiError ? e.message : t('lg_generic_err'));
     } finally {
       setBusy(false);
     }
@@ -102,7 +103,7 @@ export default function LoginScreen() {
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="Full name"
+              placeholder={t('lg_name')}
               placeholderTextColor={theme.textSecondary}
               autoCapitalize="words"
               style={inputStyle}
@@ -113,7 +114,7 @@ export default function LoginScreen() {
             <TextInput
               value={email}
               onChangeText={setEmail}
-              placeholder="Email"
+              placeholder={t('lg_email')}
               placeholderTextColor={theme.textSecondary}
               autoCapitalize="none"
               keyboardType="email-address"
@@ -126,7 +127,7 @@ export default function LoginScreen() {
             <TextInput
               value={phone}
               onChangeText={setPhone}
-              placeholder="Phone (optional)"
+              placeholder={t('lg_phone')}
               placeholderTextColor={theme.textSecondary}
               keyboardType="phone-pad"
               style={inputStyle}
@@ -137,7 +138,7 @@ export default function LoginScreen() {
             <TextInput
               value={code}
               onChangeText={setCode}
-              placeholder="Reset code"
+              placeholder={t('lg_ph_code')}
               placeholderTextColor={theme.textSecondary}
               keyboardType="number-pad"
               style={inputStyle}
@@ -151,7 +152,7 @@ export default function LoginScreen() {
               <TextInput
                 value={password}
                 onChangeText={setPassword}
-                placeholder={mode === 'reset' ? 'New password' : 'Password'}
+                placeholder={mode === 'reset' ? t('lg_ph_newpass') : t('lg_password')}
                 placeholderTextColor={theme.textSecondary}
                 secureTextEntry={!showPassword}
                 style={[styles.passwordInput, { color: theme.text }]}
@@ -161,7 +162,7 @@ export default function LoginScreen() {
                 hitSlop={10}
                 style={styles.eyeBtn}
                 accessibilityRole="button"
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+                accessibilityLabel={showPassword ? t('lg_a11y_hide') : t('lg_a11y_show')}>
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={22}
@@ -174,7 +175,7 @@ export default function LoginScreen() {
           {mode === 'login' ? (
             <Pressable onPress={() => go('forgot')} style={styles.forgotLink}>
               <ThemedText type="small" style={{ color: Brand.accent }}>
-                Forgot password?
+                {t('lg_forgot')}
               </ThemedText>
             </Pressable>
           ) : null}
@@ -203,24 +204,23 @@ export default function LoginScreen() {
           {mode === 'login' || mode === 'register' ? (
             <Pressable onPress={() => go(mode === 'login' ? 'register' : 'login')} style={styles.switch}>
               <ThemedText type="small" themeColor="textSecondary">
-                {mode === 'login' ? "Don't have an account? " : 'Already a member? '}
+                {mode === 'login' ? t('lg_no_account') : t('lg_have_account')}
                 <ThemedText type="smallBold" style={{ color: Brand.accent }}>
-                  {mode === 'login' ? 'Sign up' : 'Sign in'}
+                  {mode === 'login' ? t('lg_signup_word') : t('lg_signin_word')}
                 </ThemedText>
               </ThemedText>
             </Pressable>
           ) : (
             <Pressable onPress={() => go('login')} style={styles.switch}>
               <ThemedText type="smallBold" style={{ color: Brand.accent }}>
-                Back to sign in
+                {t('lg_back_signin')}
               </ThemedText>
             </Pressable>
           )}
 
           {mode === 'register' ? (
             <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
-              New accounts are activated by us after payment. You can sign in right away and your
-              member pricing unlocks once activated.
+              {t('lg_register_note')}
             </ThemedText>
           ) : null}
         </ScrollView>

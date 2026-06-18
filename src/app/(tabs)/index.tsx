@@ -26,6 +26,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BarcodeScanner } from '@/components/barcode-scanner';
 import { PressableScale } from '@/components/pressable-scale';
 import { ProductSkeleton } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
@@ -33,8 +34,11 @@ import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/lib/api';
 import { ApiError } from '@/lib/api';
+import { readCatalogCache, saveCatalogCache } from '@/lib/catalog-cache';
 import { useAuth } from '@/lib/auth';
 import { useCart } from '@/lib/cart';
+import { useFavorites } from '@/lib/favorites';
+import { useI18n } from '@/lib/i18n';
 import { formatMoney, regularWholesale } from '@/lib/format';
 import { tapLight, tapSelection } from '@/lib/haptics';
 import type { Category, Product } from '@/lib/types';
@@ -45,7 +49,16 @@ export default function CatalogScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { token, isMember, tier, subscriber } = useAuth();
+  const { t, isAr } = useI18n();
   const cart = useCart();
+  const favorites = useFavorites();
+
+  // Favorites view: when on, the list shows the subscriber's saved parts instead
+  // of search results.
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [favProducts, setFavProducts] = useState<Product[]>([]);
+  const [favLoading, setFavLoading] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
 
   // Bump the cart bar whenever the item count changes (tactile "added" feedback).
   const bump = useSharedValue(1);
@@ -69,6 +82,7 @@ export default function CatalogScreen() {
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inactive, setInactive] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   const reqId = useRef(0);
   const pageRef = useRef(1);
@@ -88,6 +102,8 @@ export default function CatalogScreen() {
       pageRef.current = 1;
       setLoading(true);
       setError(null);
+      // The default browse (no query, no category) is the view we cache for offline.
+      const isDefaultBrowse = !q.trim() && !catRef.current;
       try {
         const params = m === 'device' ? { device: q } : { q };
         const data = await api.getCatalog(token, {
@@ -99,7 +115,9 @@ export default function CatalogScreen() {
           setProducts(data);
           setHasMore(data.length === api.CATALOG_PAGE_SIZE);
           setInactive(false);
+          setOffline(false);
         }
+        if (isDefaultBrowse) void saveCatalogCache(data);
       } catch (e) {
         if (id !== reqId.current) return;
         if (e instanceof ApiError && e.status === 402) {
@@ -107,7 +125,17 @@ export default function CatalogScreen() {
           setProducts([]);
           setHasMore(false);
         } else {
-          setError(e instanceof Error ? e.message : 'Something went wrong');
+          // Network failure on the default browse: fall back to the last-known
+          // catalog so the tab isn't empty in the field. Searches still error.
+          const cached = isDefaultBrowse ? await readCatalogCache() : null;
+          if (id !== reqId.current) return;
+          if (cached) {
+            setProducts(cached);
+            setHasMore(false);
+            setOffline(true);
+          } else {
+            setError(e instanceof Error ? e.message : 'Something went wrong');
+          }
         }
       } finally {
         if (id === reqId.current) setLoading(false);
@@ -174,7 +202,7 @@ export default function CatalogScreen() {
     cart.add(item);
     tapLight();
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast(`Added ${item.name_en}`);
+    setToast(t('cat_added', { name: item.name_en }));
     toastTimer.current = setTimeout(() => setToast(null), 1400);
   };
   useEffect(() => () => {
@@ -187,6 +215,34 @@ export default function CatalogScreen() {
       : null;
 
   const onSubmit = () => load(query.trim(), mode);
+
+  const enterFavorites = useCallback(() => {
+    if (!token) return;
+    setShowFavorites(true);
+    setFavLoading(true);
+    api
+      .getFavorites(token)
+      .then(setFavProducts)
+      .catch(() => setFavProducts([]))
+      .finally(() => setFavLoading(false));
+  }, [token]);
+
+  const toggleFavoritesView = () => {
+    tapSelection();
+    if (showFavorites) setShowFavorites(false);
+    else enterFavorites();
+  };
+
+  const onScanned = (code: string) => {
+    setScanOpen(false);
+    setShowFavorites(false);
+    setMode('part');
+    setQuery(code);
+    load(code, 'part');
+  };
+
+  // Parts shown in the Favorites view, kept in sync if the user unfavorites one.
+  const favView = favProducts.filter((p) => favorites.isFavorite(p.id));
 
   const switchMode = (m: SearchMode) => {
     tapSelection();
@@ -218,15 +274,18 @@ export default function CatalogScreen() {
             onSubmitEditing={onSubmit}
             returnKeyType="search"
             autoCorrect={false}
-            placeholder={mode === 'device' ? 'Search device model, e.g. iPhone 13' : 'Search part name or SKU'}
+            placeholder={mode === 'device' ? t('cat_search_device') : t('cat_search_part')}
             placeholderTextColor={theme.textSecondary}
-            style={[styles.searchInput, { color: theme.text }]}
+            style={[styles.searchInput, { color: theme.text }, isAr && { textAlign: 'right' }]}
           />
           {query.length > 0 ? (
             <Pressable onPress={() => setQuery('')} hitSlop={10}>
               <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
             </Pressable>
           ) : null}
+          <Pressable onPress={() => setScanOpen(true)} hitSlop={8}>
+            <Ionicons name="barcode-outline" size={20} color={Brand.accent} />
+          </Pressable>
         </View>
         <View style={styles.segment}>
           {(['part', 'device'] as SearchMode[]).map((m) => {
@@ -244,7 +303,7 @@ export default function CatalogScreen() {
                 <ThemedText
                   type="smallBold"
                   style={{ color: selected ? '#fff' : theme.textSecondary }}>
-                  {m === 'part' ? 'Part / SKU' : 'Device model'}
+                  {m === 'part' ? t('cat_mode_part') : t('cat_mode_device')}
                 </ThemedText>
               </Pressable>
             );
@@ -252,12 +311,30 @@ export default function CatalogScreen() {
         </View>
       </View>
 
-      {categories.length > 0 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chips}>
-          {[{ id: '', name_en: 'All' }, ...categories].map((c, i) => {
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipsScroll}
+        contentContainerStyle={styles.chips}>
+        <PressableScale
+          onPress={toggleFavoritesView}
+          down={0.94}
+          style={[
+            styles.chip,
+            styles.favChip,
+            { backgroundColor: showFavorites ? Brand.accent : theme.backgroundElement },
+          ]}>
+          <Ionicons
+            name={showFavorites ? 'heart' : 'heart-outline'}
+            size={14}
+            color={showFavorites ? '#fff' : Brand.danger}
+          />
+          <ThemedText type="small" style={{ color: showFavorites ? '#fff' : theme.textSecondary }}>
+            {t('cat_favorites')}
+          </ThemedText>
+        </PressableScale>
+        {categories.length > 0 ? (
+          [{ id: '', name_en: 'All' }, ...categories].map((c, i) => {
             const id = c.id || null;
             const selected = selectedCat === id;
             return (
@@ -270,41 +347,45 @@ export default function CatalogScreen() {
                     { backgroundColor: selected ? Brand.accent : theme.backgroundElement },
                   ]}>
                   <ThemedText type="small" style={{ color: selected ? '#fff' : theme.textSecondary }}>
-                    {c.name_en}
+                    {c.id ? c.name_en : t('cat_all')}
                   </ThemedText>
                 </PressableScale>
               </Animated.View>
             );
-          })}
-        </ScrollView>
-      ) : null}
+          })
+        ) : null}
+      </ScrollView>
 
       {tier === 'free' ? (
         <Pressable onPress={() => router.push('/account')} style={[styles.banner, { backgroundColor: Brand.accent }]}>
           <ThemedText type="small" style={{ color: '#fff', flex: 1 }}>
-            {discountPct != null
-              ? `Pro members save ${discountPct}% on every order. Upgrade →`
-              : 'Upgrade to Pro for member pricing →'}
+            {discountPct != null ? t('cat_banner_save', { pct: discountPct }) : t('cat_banner_upgrade')}
           </ThemedText>
         </Pressable>
       ) : trialDaysLeft != null && trialDaysLeft <= 2 ? (
         <Pressable onPress={() => router.push('/account')} style={[styles.banner, { backgroundColor: theme.backgroundElement }]}>
           <ThemedText type="small" style={{ flex: 1 }}>
-            {trialDaysLeft > 0
-              ? `Your trial ends in ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} — subscribe to keep member pricing →`
-              : 'Your trial ends today — subscribe to keep member pricing →'}
+            {trialDaysLeft > 0 ? t('cat_trial_ends_in', { n: trialDaysLeft }) : t('cat_trial_ends_today')}
           </ThemedText>
         </Pressable>
+      ) : null}
+
+      {offline ? (
+        <View style={[styles.offlineBar, { backgroundColor: theme.backgroundElement }]}>
+          <Ionicons name="cloud-offline-outline" size={16} color={theme.textSecondary} />
+          <ThemedText type="small" themeColor="textSecondary">
+            {t('cat_offline')}
+          </ThemedText>
+        </View>
       ) : null}
 
       {inactive ? (
         <Centered>
           <ThemedText type="subtitle" style={styles.center}>
-            Membership inactive
+            {t('cat_inactive_title')}
           </ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.center}>
-            Your Parts Pro subscription isn&apos;t active yet. Once activated you&apos;ll see the
-            live member catalog with discounted prices.
+            {t('cat_inactive_body')}
           </ThemedText>
         </Centered>
       ) : error ? (
@@ -312,11 +393,11 @@ export default function CatalogScreen() {
           <ThemedText style={styles.center}>{error}</ThemedText>
           <Pressable onPress={onSubmit} style={styles.retry}>
             <ThemedText type="smallBold" style={{ color: '#fff' }}>
-              Retry
+              {t('retry')}
             </ThemedText>
           </Pressable>
         </Centered>
-      ) : loading && products.length === 0 ? (
+      ) : (showFavorites ? favLoading : loading) && (showFavorites ? favView : products).length === 0 ? (
         <View style={styles.list}>
           {Array.from({ length: 7 }).map((_, i) => (
             <ProductSkeleton key={i} />
@@ -324,7 +405,7 @@ export default function CatalogScreen() {
         </View>
       ) : (
         <FlatList
-          data={products}
+          data={showFavorites ? favView : products}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item, index }) => (
@@ -337,31 +418,37 @@ export default function CatalogScreen() {
           )}
           ListEmptyComponent={
             <Animated.View entering={FadeIn.duration(260)} style={styles.centered}>
-              <Ionicons name="cube-outline" size={48} color={theme.textSecondary} />
+              <Ionicons
+                name={showFavorites ? 'heart-outline' : 'cube-outline'}
+                size={48}
+                color={theme.textSecondary}
+              />
               <ThemedText themeColor="textSecondary" style={styles.center}>
-                No parts found. Try a different search.
+                {showFavorites ? t('cat_fav_empty') : t('cat_empty')}
               </ThemedText>
             </Animated.View>
           }
           ListFooterComponent={
-            loadingMore ? (
+            loadingMore && !showFavorites ? (
               <View style={styles.footer}>
                 <ActivityIndicator color={Brand.accent} />
               </View>
             ) : null
           }
-          onEndReached={loadMore}
+          onEndReached={showFavorites ? undefined : loadMore}
           onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
-              refreshing={loading}
-              onRefresh={onSubmit}
+              refreshing={showFavorites ? favLoading : loading}
+              onRefresh={showFavorites ? enterFavorites : onSubmit}
               tintColor={Brand.accent}
               colors={[Brand.accent]}
             />
           }
         />
       )}
+
+      <BarcodeScanner visible={scanOpen} onScan={onScanned} onClose={() => setScanOpen(false)} />
 
       {toast ? (
         <Animated.View
@@ -384,7 +471,7 @@ export default function CatalogScreen() {
           style={[styles.cartBarWrap, bumpStyle]}>
           <Pressable style={styles.cartBar} onPress={() => router.push('/cart')}>
             <ThemedText type="smallBold" style={{ color: '#fff' }}>
-              View cart · {cart.count} item{cart.count === 1 ? '' : 's'}
+              {t('cat_view_cart', { n: cart.count })}
             </ThemedText>
             <ThemedText type="smallBold" style={{ color: '#fff' }}>
               {formatMoney(cart.total)}
@@ -408,21 +495,26 @@ function ProductRow({
   onAdd: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useI18n();
+  const { token } = useAuth();
+  const favorites = useFavorites();
+  const faved = favorites.isFavorite(product.id);
+  const [notified, setNotified] = useState(false);
   const regular = regularWholesale(product);
   const member = product.member_price;
   const hasMember = showMember && member !== null && member !== undefined && regular !== null;
   const savings =
     hasMember && regular && regular > 0 ? Math.round((1 - (member as number) / regular) * 100) : 0;
 
-  const stockLabel =
+  const out =
     product.stock_qty === null || product.stock_qty === undefined
       ? product.in_stock === false
-        ? 'Out of stock'
-        : 'In stock'
-      : product.stock_qty > 0
-        ? `${product.stock_qty} in stock`
-        : 'Out of stock';
-  const out = stockLabel === 'Out of stock';
+      : product.stock_qty <= 0;
+  const stockLabel = out
+    ? t('cat_out_stock')
+    : product.stock_qty === null || product.stock_qty === undefined
+      ? t('cat_in_stock')
+      : t('cat_n_in_stock', { n: product.stock_qty });
 
   return (
     <Animated.View
@@ -433,18 +525,28 @@ function ProductRow({
       ) : (
         <View style={[styles.thumb, { backgroundColor: theme.backgroundSelected }]} />
       )}
+      <Pressable
+        onPress={() => {
+          tapLight();
+          favorites.toggle(product.id);
+        }}
+        hitSlop={8}
+        style={styles.favHeart}
+        accessibilityRole="button">
+        <Ionicons name={faved ? 'heart' : 'heart-outline'} size={20} color={faved ? Brand.danger : theme.textSecondary} />
+      </Pressable>
       <View style={styles.cardBody}>
         <ThemedText type="smallBold" numberOfLines={2}>
           {product.name_en}
         </ThemedText>
         {product.sku ? (
           <ThemedText type="small" themeColor="textSecondary">
-            SKU {product.sku}
+            {t('cat_sku', { sku: product.sku })}
           </ThemedText>
         ) : null}
         {product.compatible_models && product.compatible_models.length > 0 ? (
           <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-            Fits: {product.compatible_models.join(', ')}
+            {t('cat_fits', { models: product.compatible_models.join(', ') })}
           </ThemedText>
         ) : null}
         <ThemedText
@@ -466,16 +568,36 @@ function ProductRow({
               {formatMoney(regular)}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {savings > 0 ? `member · save ${savings}%` : 'member'}
+              {savings > 0 ? t('cat_member_save', { pct: savings }) : t('cat_member')}
             </ThemedText>
           </>
         ) : (
           <ThemedText type="smallBold">{formatMoney(regular)}</ThemedText>
         )}
-        {showMember && !out ? (
+        {out ? (
+          <PressableScale
+            onPress={() => {
+              if (notified || !token) return;
+              setNotified(true);
+              tapLight();
+              api.notifyWhenInStock(token, product.id).catch(() => setNotified(false));
+            }}
+            style={[styles.notifyBtn, { borderColor: Brand.accent }]}
+            hitSlop={6}
+            down={0.9}>
+            <Ionicons
+              name={notified ? 'checkmark' : 'notifications-outline'}
+              size={13}
+              color={Brand.accent}
+            />
+            <ThemedText type="small" style={{ color: Brand.accent }}>
+              {notified ? t('cat_notify_set') : t('cat_notify_me')}
+            </ThemedText>
+          </PressableScale>
+        ) : showMember ? (
           <PressableScale onPress={onAdd} style={styles.addBtn} hitSlop={6} down={0.9}>
             <ThemedText type="small" style={{ color: '#fff' }}>
-              + Add
+              {t('cat_add')}
             </ThemedText>
           </PressableScale>
         ) : null}
@@ -499,6 +621,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
   },
   searchInput: { flex: 1, paddingVertical: Spacing.three, fontSize: 16 },
+  offlineBar: {
+    marginHorizontal: Spacing.three,
+    marginBottom: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
   banner: {
     marginHorizontal: Spacing.three,
     marginBottom: Spacing.two,
@@ -515,11 +647,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   segment: { flexDirection: 'row', gap: Spacing.two },
-  chips: { paddingHorizontal: Spacing.three, gap: Spacing.two, paddingBottom: Spacing.two },
+  // Keep the chip row at its natural height — without this the horizontal
+  // ScrollView gets vertically shrunk by the list below and the labels clip.
+  chipsScroll: { flexGrow: 0, flexShrink: 0 },
+  chips: {
+    paddingHorizontal: Spacing.three,
+    gap: Spacing.two,
+    paddingBottom: Spacing.two,
+    alignItems: 'center',
+  },
   chip: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
     borderRadius: Spacing.four,
+  },
+  favChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  favHeart: {
+    position: 'absolute',
+    top: Spacing.two,
+    left: Spacing.two,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 14,
+    padding: 3,
   },
   segmentBtn: {
     flex: 1,
@@ -543,6 +692,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
     backgroundColor: Brand.accent,
     paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: Spacing.two,
+  },
+  notifyBtn: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
     borderRadius: Spacing.two,
   },
